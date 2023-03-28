@@ -53,6 +53,12 @@ spec:
         {{- include "common.tplvalues.render" (dict "value" .Values.podAnnotations "context" $) | nindent 8 }}
         {{- end }}
     spec:
+      {{- if .Values.dnsPolicy }}
+      dnsPolicy: {{ .Values.dnsPolicy | quote }}
+      {{- end }}
+      {{- if .Values.dnsConfig }}
+      dnsConfig: {{- include "common.tplvalues.render" (dict "value" .Values.dnsConfig "context" $) | nindent 8 }}
+      {{- end }}
       {{- include "kafka.imagePullSecrets" . | nindent 6 }}
       {{- if .Values.hostAliases }}
       hostAliases: {{- include "common.tplvalues.render" (dict "value" .Values.hostAliases "context" $) | nindent 8 }}
@@ -177,7 +183,7 @@ spec:
                   fieldPath: metadata.name
             - name: KAFKA_CFG_ZOOKEEPER_CONNECT
               {{- if .Values.zookeeper.enabled }}
-              value: {{ printf "%s%s" (include "kafka.zookeeper.fullname" .) (tpl .Values.zookeeperChrootPath .) | quote }}
+              value: {{ printf "%s-headless%s" (include "kafka.zookeeper.fullname" .) (tpl .Values.zookeeperChrootPath .) | quote }}
               {{- else }}
               value: {{ include "common.tplvalues.render" (dict "value" (printf "%s%s" (join "," .Values.externalZookeeper.servers) (tpl .Values.zookeeperChrootPath .)) "context" $)    }}
               {{- end }}
