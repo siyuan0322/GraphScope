@@ -220,8 +220,9 @@ fn commit_data_load<G: MultiVersionGraph>(
     let target_pb = commit_data_load_pb.get_target();
     let partition_id = commit_data_load_pb.get_partitionId();
     let unique_path = commit_data_load_pb.get_path();
+    let ingest_options = commit_data_load_pb.get_options();
     let target = DataLoadTarget::from_proto(target_pb);
-    graph.commit_data_load(snapshot_id, schema_version, &target, table_id, partition_id, unique_path)
+    graph.commit_data_load(snapshot_id, schema_version, &target, table_id, partition_id, unique_path, ingest_options)
 }
 
 fn prepare_data_load<G: MultiVersionGraph>(

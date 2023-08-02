@@ -13,6 +13,7 @@
 //! See the License for the specific language governing permissions and
 //! limitations under the License.
 
+use std::collections::HashMap;
 use crate::api::Condition;
 use crate::db::api::types::{RocksEdge, RocksVertex};
 use crate::db::api::{
@@ -197,7 +198,7 @@ pub trait MultiVersionGraph {
 
     fn commit_data_load(
         &self, si: SnapshotId, schema_version: i64, target: &DataLoadTarget, table_id: i64,
-        partition_id: i32, unique_path: &str,
+        partition_id: i32, unique_path: &str, ingest_options: &HashMap<String, String>
     ) -> GraphResult<bool>;
 
     /// Open a backup engine of graph storage that implements GraphBackup trait.

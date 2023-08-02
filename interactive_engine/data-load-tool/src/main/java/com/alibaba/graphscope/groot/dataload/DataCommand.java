@@ -33,6 +33,8 @@ public abstract class DataCommand {
 
     protected Map<String, String> ingestConfig;
 
+    protected Map<String, String> commitConfig;
+
     public DataCommand(String configPath) throws IOException {
         this.configPath = configPath;
         initialize();
@@ -49,6 +51,9 @@ public abstract class DataCommand {
         String outputPath = properties.getProperty(DataLoadConfig.OUTPUT_PATH);
         String metaFilePath = new Path(outputPath, DataLoadConfig.META_FILE_NAME).toString();
         String dataSinkType = properties.getProperty(DataLoadConfig.DATA_SINK_TYPE, "HDFS");
+
+        String ingest_behind = properties.getProperty(DataLoadConfig.INGEST_BEHIND, "false");
+        commitConfig.put(DataLoadConfig.INGEST_BEHIND, ingest_behind);
 
         if (dataSinkType.equalsIgnoreCase("HDFS")) {
             FileSystem fs = new Path(this.configPath).getFileSystem(new Configuration());

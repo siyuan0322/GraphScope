@@ -18,17 +18,22 @@ import com.alibaba.graphscope.groot.operation.OperationType;
 import com.alibaba.graphscope.proto.groot.CommitDataLoadPb;
 import com.google.protobuf.ByteString;
 
+import java.util.Map;
+
 public class CommitDataLoadRequest extends AbstractDdlRequest {
 
     private DataLoadTarget dataLoadTarget;
     private long tableId;
     private String path;
 
-    public CommitDataLoadRequest(DataLoadTarget dataLoadTarget, long tableId, String path) {
+    private Map<String, String> options;
+
+    public CommitDataLoadRequest(DataLoadTarget dataLoadTarget, long tableId, String path, Map<String, String> options) {
         super(OperationType.COMMIT_DATA_LOAD);
         this.dataLoadTarget = dataLoadTarget;
         this.tableId = tableId;
         this.path = path;
+        this.options = options;
     }
 
     @Override
@@ -37,6 +42,7 @@ public class CommitDataLoadRequest extends AbstractDdlRequest {
                 .setTarget(dataLoadTarget.toProto())
                 .setTableIdx(this.tableId)
                 .setPath(this.path)
+                .putAllOptions(options)
                 .build()
                 .toByteString();
     }

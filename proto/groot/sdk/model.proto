@@ -175,4 +175,5 @@ message CommitDataLoadPb {
   int64 tableIdx = 2;
   string path = 3;
   int32 partitionId = 4;
+  map<string, string> options = 5;
 }

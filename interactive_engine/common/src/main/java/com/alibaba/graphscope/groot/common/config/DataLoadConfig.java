@@ -64,4 +64,7 @@ public class DataLoadConfig {
     public static final String ODPS_ENDPOINT = "odps.endpoint";
     /* end */
 
+    /** ingest of rocksdb options **/
+    public static final String INGEST_BEHIND = "store.rocksdb.ingest.ingest_behind";
+
 }

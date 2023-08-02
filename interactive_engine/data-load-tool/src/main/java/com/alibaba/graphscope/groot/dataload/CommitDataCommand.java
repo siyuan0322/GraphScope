@@ -24,22 +24,19 @@ public class CommitDataCommand extends DataCommand {
                         .build();
         Map<Long, DataLoadTargetPb> tableToTarget = new HashMap<>();
         for (ColumnMappingInfo columnMappingInfo : columnMappingInfos.values()) {
-            long tableId = columnMappingInfo.getTableId();
-            int labelId = columnMappingInfo.getLabelId();
-            GraphElement graphElement = schema.getElement(labelId);
-            String label = graphElement.getLabel();
             DataLoadTargetPb.Builder builder = DataLoadTargetPb.newBuilder();
-            builder.setLabel(label);
+            GraphElement graphElement = schema.getElement(columnMappingInfo.getLabelId());
+            builder.setLabel(graphElement.getLabel());
             if (graphElement instanceof GraphEdge) {
                 builder.setSrcLabel(
                         schema.getElement(columnMappingInfo.getSrcLabelId()).getLabel());
                 builder.setDstLabel(
                         schema.getElement(columnMappingInfo.getDstLabelId()).getLabel());
             }
-            tableToTarget.put(tableId, builder.build());
+            tableToTarget.put(columnMappingInfo.getTableId(), builder.build());
         }
         System.out.println("Commit data. unique path: " + uniquePath);
-        client.commitDataLoad(tableToTarget, uniquePath);
+        client.commitDataLoad(tableToTarget, uniquePath, commitConfig);
         System.out.println("Commit complete.");
     }
 }

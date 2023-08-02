@@ -29,6 +29,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class CommitDataLoadExecutor extends AbstractDdlExecutor {
     @Override
@@ -37,6 +38,7 @@ public class CommitDataLoadExecutor extends AbstractDdlExecutor {
         CommitDataLoadPb commitDataLoadPb = CommitDataLoadPb.parseFrom(ddlBlob);
         DataLoadTargetPb dataLoadTargetPb = commitDataLoadPb.getTarget();
         String path = commitDataLoadPb.getPath();
+        Map<String, String> options = commitDataLoadPb.getOptionsMap();
         DataLoadTarget dataLoadTarget = DataLoadTarget.parseProto(dataLoadTargetPb);
         String label = dataLoadTarget.getLabel();
         String srcLabel = dataLoadTarget.getSrcLabel();
@@ -66,33 +68,15 @@ public class CommitDataLoadExecutor extends AbstractDdlExecutor {
                         "invalid data load target [" + dataLoadTarget + "], label is not an edge");
             }
             EdgeKind.Builder edgeKindBuilder = EdgeKind.newBuilder();
-            LabelId edgeLabelId = graphDef.getLabelId(label);
-            if (edgeLabelId == null) {
-                throw new DdlException(
-                        "invalid edgeLabel [" + label + "], schema version [" + version + "]");
-            }
+            LabelId edgeLabelId = getLabel(graphDef, label, version);
             edgeKindBuilder.setEdgeLabelId(edgeLabelId);
             targetBuilder.setLabelId(edgeLabelId.getId());
-            LabelId srcVertexLabelId = graphDef.getLabelId(srcLabel);
-            if (srcVertexLabelId == null) {
-                throw new DdlException(
-                        "invalid srcVertexLabel ["
-                                + srcLabel
-                                + "], schema version ["
-                                + version
-                                + "]");
-            }
+
+            LabelId srcVertexLabelId = getLabel(graphDef, srcLabel, version);
             edgeKindBuilder.setSrcVertexLabelId(srcVertexLabelId);
             targetBuilder.setSrcLabelId(srcVertexLabelId.getId());
-            LabelId dstVertexLabelId = graphDef.getLabelId(dstLabel);
-            if (dstVertexLabelId == null) {
-                throw new DdlException(
-                        "invalid dstVertexLabel ["
-                                + dstLabel
-                                + "], schema version ["
-                                + version
-                                + "]");
-            }
+
+            LabelId dstVertexLabelId = getLabel(graphDef, dstLabel, version);
             edgeKindBuilder.setDstVertexLabelId(dstVertexLabelId);
             targetBuilder.setDstLabelId(dstVertexLabelId.getId());
             EdgeKind edgeKind = edgeKindBuilder.build();
@@ -115,8 +99,17 @@ public class CommitDataLoadExecutor extends AbstractDdlExecutor {
                                     .setTarget(targetBuilder.build().toProto())
                                     .setPartitionId(i)
                                     .setPath(path)
+                                    .putAllOptions(options)
                                     .build()));
         }
         return new DdlResult(newGraphDef, operations);
+    }
+
+    private LabelId getLabel(GraphDef graphDef, String label, long version) {
+        LabelId labelId = graphDef.getLabelId(label);
+        if (labelId == null) {
+            throw new DdlException("invalid label [" + label + "], schema version [" + version + "]");
+        }
+        return labelId;
     }
 }

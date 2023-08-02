@@ -215,10 +215,11 @@ public class GrootClient {
         return response.getGraphDef();
     }
 
-    public void commitDataLoad(Map<Long, DataLoadTargetPb> tableToTarget, String path) {
+    public void commitDataLoad(Map<Long, DataLoadTargetPb> tableToTarget, String path, Map<String, String> options) {
         CommitDataLoadRequest.Builder builder = CommitDataLoadRequest.newBuilder();
         tableToTarget.forEach(builder::putTableToTarget);
         builder.setPath(path);
+        builder.putAllOptions(options);
         CommitDataLoadResponse response = this.clientStub.commitDataLoad(builder.build());
     }
 

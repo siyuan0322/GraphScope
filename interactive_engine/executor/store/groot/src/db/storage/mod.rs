@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::db::api::{BackupId, GraphResult};
 
 pub mod rocksdb;
@@ -13,7 +14,7 @@ pub trait ExternalStorage: Send + Sync {
     fn scan_from(&self, start: &[u8]) -> GraphResult<StorageIter>;
     fn scan_range(&self, start: &[u8], end: &[u8]) -> GraphResult<StorageIter>;
     fn delete_range(&self, start: &[u8], end: &[u8]) -> GraphResult<()>;
-    fn load(&self, files: &[&str]) -> GraphResult<()>;
+    fn load(&self, files: &[&str], options: &HashMap<String, String>) -> GraphResult<()>;
     fn open_backup_engine(&self, backup_path: &str) -> GraphResult<Box<dyn ExternalStorageBackup>>;
     fn new_scan(&self, prefix: &[u8]) -> GraphResult<Box<dyn Iterator<Item = KvPair> + Send>>;
 }

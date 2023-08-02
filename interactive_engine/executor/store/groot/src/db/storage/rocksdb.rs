@@ -102,11 +102,10 @@ impl ExternalStorage for RocksDB {
         Ok(())
     }
 
-    fn load(&self, files: &[&str]) -> GraphResult<()> {
-        let mut options = IngestExternalFileOptions::default();
-        options.set_move_files(true);
+    fn load(&self, files: &[&str], options: &HashMap<String, String>) -> GraphResult<()> {
+        let opts = init_ingest_options(options);
         self.db
-            .ingest_external_file_opts(&options, files.to_vec())
+            .ingest_external_file_opts(&opts, files.to_vec())
             .map_err(|e| {
                 let msg = format!("rocksdb.ingest_sst file {:?} failed because {}", files, e.into_string());
                 gen_graph_err!(GraphErrorCode::ExternalStorageError, msg)
@@ -281,6 +280,22 @@ fn init_options(options: &HashMap<String, String>) -> Options {
         ret.set_max_background_jobs(background_jobs);
     }
     ret
+}
+
+fn init_ingest_options(options: &HashMap<String, String>) -> IngestExternalFileOptions {
+    let mut opts = IngestExternalFileOptions::default();
+    opts.set_move_files(true);
+    if let Some(ingest_behind) = options.get("store.rocksdb.ingest.ingest_behind") {
+        let ingest_behind: bool = match ingest_behind.as_str() {
+            "true" => true,
+            "t" => true,
+            "True" => true,
+            "1" => true,
+            _ => false  // Or whatever appropriate default value or error.
+        };
+        opts.set_ingest_behind(ingest_behind);
+    }
+    opts
 }
 
 pub struct RocksDBIter<'a> {

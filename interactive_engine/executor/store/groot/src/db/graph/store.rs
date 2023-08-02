@@ -505,9 +505,9 @@ impl MultiVersionGraph for GraphStore {
 
     fn commit_data_load(
         &self, si: i64, schema_version: i64, target: &DataLoadTarget, table_id: i64, partition_id: i32,
-        unique_path: &str,
+        unique_path: &str, ingest_options: &HashMap<String, String>
     ) -> GraphResult<bool> {
-        info!("committing data load from path {}", unique_path);
+        info!("committing data load from path {}, with options {:?}", unique_path, ingest_options);
         let _guard = res_unwrap!(self.lock.lock(), prepare_data_load)?;
         self.check_si_guard(si)?;
         if let Err(_) = self.meta.check_version(schema_version) {
@@ -518,7 +518,7 @@ impl MultiVersionGraph for GraphStore {
         let data_file_path =
             format!("{}/../{}/{}/part-r-{:0>5}.sst", self.data_root, "download", unique_path, partition_id);
         if Path::new(data_file_path.as_str()).exists() {
-            self.ingest(data_file_path.as_str())?
+            self.ingest(data_file_path.as_str(), ingest_options)?
         }
         if target.src_label_id > 0 {
             let edge_kind = EdgeKind::new(target.label_id, target.src_label_id, target.dst_label_id);
@@ -666,9 +666,9 @@ impl GraphStore {
             .store(si as isize, Ordering::Relaxed);
     }
 
-    pub fn ingest(&self, data_path: &str) -> GraphResult<()> {
+    pub fn ingest(&self, data_path: &str, options: &HashMap<String, String>) -> GraphResult<()> {
         let p = [data_path];
-        self.storage.load(&p)
+        self.storage.load(&p, options)
     }
 
     pub fn get_graph_def(&self) -> GraphResult<GraphDef> {

@@ -85,6 +85,7 @@ message PrepareDataLoadResponse {
 message CommitDataLoadRequest {
   map<int64, DataLoadTargetPb> tableToTarget = 1;
   string path = 2;
+  map<string, string> options = 3;
 }
 
 message CommitDataLoadResponse {

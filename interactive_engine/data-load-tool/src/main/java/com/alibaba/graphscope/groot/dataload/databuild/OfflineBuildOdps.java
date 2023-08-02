@@ -193,22 +193,21 @@ public class OfflineBuildOdps {
                 logger.info("start committing bulk load");
                 Map<Long, DataLoadTargetPb> tableToTarget = new HashMap<>();
                 for (ColumnMappingInfo columnMappingInfo : columnMappingInfos.values()) {
-                    long tableId = columnMappingInfo.getTableId();
-                    int labelId = columnMappingInfo.getLabelId();
-                    GraphElement graphElement = schema.getElement(labelId);
-                    String label = graphElement.getLabel();
                     DataLoadTargetPb.Builder builder = DataLoadTargetPb.newBuilder();
-                    builder.setLabel(label);
+                    GraphElement graphElement = schema.getElement(columnMappingInfo.getLabelId());
+                    builder.setLabel(graphElement.getLabel());
                     if (graphElement instanceof GraphEdge) {
                         builder.setSrcLabel(
                                 schema.getElement(columnMappingInfo.getSrcLabelId()).getLabel());
                         builder.setDstLabel(
                                 schema.getElement(columnMappingInfo.getDstLabelId()).getLabel());
                     }
-                    tableToTarget.put(tableId, builder.build());
+                    tableToTarget.put(columnMappingInfo.getTableId(), builder.build());
                 }
-                client.commitDataLoad(tableToTarget, uniquePath);
-
+                String ingest_behind = properties.getProperty(DataLoadConfig.INGEST_BEHIND, "false");
+                Map<String, String> options = new HashMap<>();
+                options.put(DataLoadConfig.INGEST_BEHIND, ingest_behind);
+                client.commitDataLoad(tableToTarget, uniquePath, options);
             } catch (Exception ex) {
                 logger.error("Failed to ingest/commit data", ex);
                 client.clearIngest(uniquePath);
