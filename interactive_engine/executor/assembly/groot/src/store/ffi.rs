@@ -67,6 +67,7 @@ impl StringSlice {
 
 #[no_mangle]
 pub extern "C" fn OpenPartitionGraph(store_path: *const c_char) -> PartitionGraphHandle {
+    // Used by lgraph only
     trace!("Open partition graph");
     unsafe {
         let slice = CStr::from_ptr(store_path).to_bytes();

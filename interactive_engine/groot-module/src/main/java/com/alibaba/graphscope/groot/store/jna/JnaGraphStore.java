@@ -52,12 +52,12 @@ public class JnaGraphStore implements GraphPartition {
         if (!Files.isDirectory(backupPath)) {
             Files.createDirectories(backupPath);
         }
-        Configs storeConfigs =
+        Configs rocksDBOptions =
                 Configs.newBuilder(configs)
                         .put("store.data.path", partitionPath.toString())
                         .build();
-        byte[] configBytes = storeConfigs.toProto().toByteArray();
-        this.pointer = GraphLibrary.INSTANCE.openGraphStore(configBytes, configBytes.length);
+        byte[] optionBytes = rocksDBOptions.toProto().toByteArray();
+        this.pointer = GraphLibrary.INSTANCE.openGraphStore(optionBytes, optionBytes.length);
         this.partitionId = partitionId;
         logger.info("JNA store opened. partition [" + partitionId + "]");
     }
