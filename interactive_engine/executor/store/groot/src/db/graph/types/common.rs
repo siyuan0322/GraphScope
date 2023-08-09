@@ -56,6 +56,12 @@ pub struct LifeTime {
     end_si: Volatile<SnapshotId>,
 }
 
+impl std::fmt::Debug for LifeTime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "LifeTime [{} {}]", self.start_si.get(), self.end_si.get())
+    }
+}
+
 #[allow(dead_code)]
 impl LifeTime {
     pub fn new(start_si: SnapshotId) -> Self {

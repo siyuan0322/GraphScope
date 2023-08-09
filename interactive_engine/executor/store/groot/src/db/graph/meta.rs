@@ -122,10 +122,13 @@ impl Meta {
                     graph_def.set_label_idx(label_id);
                     graph_def.set_table_idx(x.table_id);
                     graph_def.increase_version();
+                    info!("CreateVertexType create {}, {:?}", label_id, x.si);
                     vertex_manager_builder.create(x.si, x.label_id, &x.type_def)?;
+                    info!("CreateVertexType get_info {}, {:?}", label_id, x.si);
                     vertex_manager_builder
                         .get_info(x.si, x.label_id)
                         .and_then(|info| info.online_table(Table::new(x.si, x.table_id)))?;
+                    info!("After createVertexType");
                 }
                 MetaItem::DropVertexType(x) => {
                     vertex_manager_builder.drop(x.si, x.label_id)?;

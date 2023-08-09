@@ -179,7 +179,7 @@ impl VertexTypeManager {
                 let ret = VertexTypeInfoRef::new(info.as_ref(), guard);
                 return Ok(ret);
             }
-            let msg = format!("vertex#{} is not visible at {}", label, si);
+            let msg = format!("vertex#{} is not visible at {}, start: {:?}, end: {:?}", label, si, info.lifetime.get_start(), info.lifetime.get_end());
             let err = gen_graph_err!(GraphErrorCode::TypeNotFound, msg, get, si, label);
             return Err(err);
         }
@@ -273,6 +273,7 @@ impl VertexTypeManagerBuilder {
         let res = info.update_codec(si, codec);
         res_unwrap!(res, create, si, label, type_def)?;
         self.map.insert(label, Arc::new(info));
+        info!("Created vertex type: {}, {:?}", info.label, info.lifetime);
         Ok(())
     }
 
@@ -290,10 +291,14 @@ impl VertexTypeManagerBuilder {
         if let Some(info) = self.map.get(&label) {
             if info.lifetime.is_alive_at(si) {
                 return Ok(info.as_ref());
+            } else {
+                let msg = format!("vertex#{} is not visible at {}, start: {:?}, end: {:?}", label, si, info.lifetime.get_start(), info.lifetime.get_end());
+                let err = gen_graph_err!(GraphErrorCode::TypeNotFound, msg, get_info, si, label);
+                return Err(err);
             }
         }
         let msg = format!("vertex#{} not found", label);
-        let err = gen_graph_err!(GraphErrorCode::TypeNotFound, msg, get_info_mut, label);
+        let err = gen_graph_err!(GraphErrorCode::TypeNotFound, msg, get_info, label);
         Err(err)
     }
 

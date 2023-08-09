@@ -1,5 +1,6 @@
 #![allow(non_snake_case)]
 
+use std::collections::HashMap;
 use std::ffi::CStr;
 use std::os::raw::{c_char, c_void};
 use std::str;
@@ -110,7 +111,8 @@ pub extern "C" fn ingestData(ptr: GraphHandle, path: *const c_char) -> Box<JnaRe
         let graph_store_ptr = &*(ptr as *const GraphStore);
         let slice = CStr::from_ptr(path).to_bytes();
         let path_str = str::from_utf8(slice).unwrap();
-        match graph_store_ptr.ingest(path_str) {
+        let options = HashMap::new();
+        match graph_store_ptr.ingest(path_str, &options) {
             Ok(_) => JnaResponse::new_success(),
             Err(e) => {
                 let msg = format!("{:?}", e);
