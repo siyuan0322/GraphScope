@@ -76,6 +76,9 @@ public class OfflineBuild {
                 objectMapper.readValue(
                         columnMappingConfigStr,
                         new TypeReference<Map<String, FileColumnMapping>>() {});
+        String online_table = properties.getProperty("online_table", "true");
+        System.out.println("online table: " + online_table);
+        boolean reuseTableId = online_table.equalsIgnoreCase("false");
 
         List<DataLoadTargetPb> targets = new ArrayList<>();
         for (FileColumnMapping fileColumnMapping : columnMappingConfig.values()) {
@@ -87,8 +90,10 @@ public class OfflineBuild {
             if (fileColumnMapping.getDstLabel() != null) {
                 builder.setDstLabel(fileColumnMapping.getDstLabel());
             }
+            builder.setReuseTableId(reuseTableId);
             targets.add(builder.build());
         }
+
         GraphSchema schema = GraphDef.parseProto(client.prepareDataLoad(targets));
         String schemaJson = GraphSchemaMapper.parseFromSchema(schema).toJsonString();
         int partitionNum = client.getPartitionNum();
@@ -174,9 +179,11 @@ public class OfflineBuild {
                 }
                 tableToTarget.put(columnMappingInfo.getTableId(), builder.build());
             }
-            String ingest_behind = properties.getProperty(DataLoadConfig.INGEST_BEHIND, "false");
-            Map<String, String> options = new HashMap<>();
-            options.put(DataLoadConfig.INGEST_BEHIND, ingest_behind);
+
+        Map<String, String> options = new HashMap<>();
+        String ingest_behind = properties.getProperty(DataLoadConfig.INGEST_BEHIND, "false");
+        options.put(DataLoadConfig.INGEST_BEHIND, ingest_behind);
+        options.put("online_table", online_table);
             client.commitDataLoad(tableToTarget, uniquePath, options);
         }
     }

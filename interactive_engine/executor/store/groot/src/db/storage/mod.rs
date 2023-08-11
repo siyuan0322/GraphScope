@@ -25,7 +25,7 @@ pub trait ExternalStorageBackup {
     fn restore_from_backup(&mut self, restore_path: &str, backup_id: BackupId) -> GraphResult<()>;
     fn verify_backup(&self, backup_id: BackupId) -> GraphResult<()>;
     fn get_backup_list(&self) -> Vec<BackupId>;
-    fn purge_old_backups(&self, num_backups_to_keep: usize) -> GraphResult<()>;
+    fn purge_old_backups(&mut self, num_backups_to_keep: usize) -> GraphResult<()>;
 }
 
 pub enum StorageRes {

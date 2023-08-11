@@ -124,11 +124,10 @@ impl Meta {
                     graph_def.increase_version();
                     info!("CreateVertexType create {}, {:?}", label_id, x.si);
                     vertex_manager_builder.create(x.si, x.label_id, &x.type_def)?;
-                    info!("CreateVertexType get_info {}, {:?}", label_id, x.si);
-                    vertex_manager_builder
+                    info!("CreateVertexType get_info {}, {:?}", label_id, x.si);                    vertex_manager_builder
                         .get_info(x.si, x.label_id)
                         .and_then(|info| info.online_table(Table::new(x.si, x.table_id)))?;
-                    info!("After createVertexType");
+                    info!("CreateVertexType after get_info");
                 }
                 MetaItem::DropVertexType(x) => {
                     vertex_manager_builder.drop(x.si, x.label_id)?;
@@ -190,6 +189,7 @@ impl Meta {
                     graph_def.increase_version();
                 }
                 MetaItem::CommitDataLoad(x) => {
+                    info!("Commit data load");
                     let mut graph_def = self.graph_def_lock.lock()?;
                     graph_def.increase_version();
                     if x.target.src_label_id > 0 {
@@ -201,6 +201,7 @@ impl Meta {
                             Table::new(x.si, x.table_id),
                         )?;
                     } else {
+                        info!("CommitDataLoad: {}, {}", x.target.label_id, x.si);
                         vertex_manager_builder
                             .get_info(x.si, x.target.label_id)
                             .and_then(|info| info.online_table(Table::new(x.si, x.table_id)))?;
@@ -208,6 +209,7 @@ impl Meta {
                 }
             }
         }
+        info!("Finish recover");
         Ok((vertex_manager_builder.build(), edge_manager_builder.build()))
     }
 

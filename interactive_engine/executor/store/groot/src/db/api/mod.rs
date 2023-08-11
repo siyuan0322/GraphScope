@@ -38,6 +38,12 @@ pub struct EdgeId {
     pub inner_id: EdgeInnerId,
 }
 
+impl std::fmt::Display for EdgeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "EdgeId [{}-{}->{}]", self.src_id, self.inner_id, self.dst_id)
+    }
+}
+
 impl EdgeId {
     pub fn new(src_id: VertexId, dst_id: VertexId, inner_id: EdgeInnerId) -> Self {
         EdgeId { src_id, dst_id, inner_id }
@@ -115,7 +121,7 @@ impl From<&EdgeKind> for EdgeKind {
 
 impl std::fmt::Debug for EdgeKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "[{}-{}->{}]", self.src_vertex_label_id, self.edge_label_id, self.dst_vertex_label_id)
+        write!(f, "EdgeKind [{}-{}->{}]", self.src_vertex_label_id, self.edge_label_id, self.dst_vertex_label_id)
     }
 }
 

@@ -72,6 +72,10 @@ impl MultiVersionGraph for GraphStore {
         &self, snapshot_id: SnapshotId, vertex_id: VertexId, label_id: Option<LabelId>,
         property_ids: Option<&Vec<PropertyId>>,
     ) -> GraphResult<Option<Self::V>> {
+        info!(
+            "get vertex, snapshot_id: {}, vertex_id: {}, label_id: {:?}, property_ids: {:?}",
+            snapshot_id, vertex_id, label_id, property_ids
+        );
         if let Some(label_id) = label_id {
             self.get_vertex_from_label(snapshot_id, vertex_id, label_id, property_ids)
         } else {
@@ -94,6 +98,10 @@ impl MultiVersionGraph for GraphStore {
         &self, snapshot_id: SnapshotId, edge_id: EdgeId, edge_relation: Option<&EdgeKind>,
         property_ids: Option<&Vec<PropertyId>>,
     ) -> GraphResult<Option<Self::E>> {
+        info!(
+            "get edge, snapshot_id: {}, edge_id: {}, edge_relation: {:?}, property_ids: {:?}",
+            snapshot_id, edge_id, edge_relation, property_ids
+        );
         if let Some(relation) = edge_relation {
             self.get_edge_from_relation(snapshot_id, edge_id, relation, property_ids)
         } else {
@@ -121,6 +129,10 @@ impl MultiVersionGraph for GraphStore {
         &self, snapshot_id: SnapshotId, label_id: Option<LabelId>, condition: Option<&Condition>,
         property_ids: Option<&Vec<PropertyId>>,
     ) -> GraphResult<Records<Self::V>> {
+        info!(
+            "scan vertex, snapshot_id: {}, label_id: {:?}, condition: {:?}, property_ids: {:?}",
+            snapshot_id, label_id, condition, property_ids
+        );
         let mut iter = match label_id {
             Some(label_id) => {
                 match self
@@ -493,6 +505,10 @@ impl MultiVersionGraph for GraphStore {
     fn prepare_data_load(
         &self, si: i64, schema_version: i64, target: &DataLoadTarget, table_id: i64,
     ) -> GraphResult<bool> {
+        if table_id == 0 {
+            return Ok(true);
+        }
+        info!("preparing data load for table {}", table_id);
         let _guard = res_unwrap!(self.lock.lock(), prepare_data_load)?;
         self.check_si_guard(si)?;
         if let Err(_) = self.meta.check_version(schema_version) {
@@ -508,18 +524,22 @@ impl MultiVersionGraph for GraphStore {
         unique_path: &str, ingest_options: &HashMap<String, String>
     ) -> GraphResult<bool> {
         info!("committing data load from path {}, with options {:?}", unique_path, ingest_options);
-        let _guard = res_unwrap!(self.lock.lock(), prepare_data_load)?;
+        let _guard = res_unwrap!(self.lock.lock(), comit_data_load)?;
         self.check_si_guard(si)?;
         if let Err(_) = self.meta.check_version(schema_version) {
             return Ok(false);
         }
-        self.meta
-            .commit_data_load(si, schema_version, target, table_id)?;
         let data_file_path =
-            format!("{}/../{}/{}/part-r-{:0>5}.sst", self.data_root, "download", unique_path, partition_id);
+        format!("{}/../{}/{}/part-r-{:0>5}.sst", self.data_root, "download", unique_path, partition_id);
         if Path::new(data_file_path.as_str()).exists() {
             self.ingest(data_file_path.as_str(), ingest_options)?
         }
+        if let Some(conf_str) = ingest_options.get("online_table") {
+            if conf_str == "false" {
+                return Ok(true);
+            }
+        }
+        self.meta.commit_data_load(si, schema_version, target, table_id)?;
         if target.src_label_id > 0 {
             let edge_kind = EdgeKind::new(target.label_id, target.src_label_id, target.dst_label_id);
             let info = self
@@ -582,6 +602,7 @@ impl GraphStore {
     fn get_vertex_data(
         &self, si: SnapshotId, id: VertexId, info: &VertexTypeInfoRef,
     ) -> GraphResult<Option<&[u8]>> {
+        info!("get vertex data. si {}, id {}, info {:?}", si, id, info);
         if let Some(table) = info.get_table(si) {
             let key = vertex_key(table.id, id, si - table.start_si);
             let mut iter = self.storage.scan_from(&key)?;
@@ -598,6 +619,7 @@ impl GraphStore {
     fn get_edge_data(
         &self, si: SnapshotId, id: EdgeId, info: &EdgeKindInfoRef, direction: EdgeDirection,
     ) -> GraphResult<Option<&[u8]>> {
+        info!("get edge data. si {}, id {}, info {:?}", si, id, info);
         if let Some(table) = info.get_table(si) {
             let ts = si - table.start_si;
             let key = edge_key(table.id, id, direction, ts);
@@ -680,6 +702,10 @@ impl GraphStore {
         &self, snapshot_id: SnapshotId, vertex_id: VertexId, label_id: LabelId,
         property_ids: Option<&Vec<PropertyId>>,
     ) -> GraphResult<Option<RocksVertexImpl>> {
+        info!(
+            "get vertex from label. snapshot_id {}, vertex_id {}, label_id {:?}",
+            snapshot_id, vertex_id, label_id
+        );
         let snapshot_id = snapshot_id as i64;
         let vertex_type_info = self
             .vertex_manager
@@ -710,6 +736,10 @@ impl GraphStore {
         &self, snapshot_id: SnapshotId, edge_id: EdgeId, edge_relation: &EdgeKind,
         property_ids: Option<&Vec<PropertyId>>,
     ) -> GraphResult<Option<RocksEdgeImpl>> {
+        info!(
+            "get edge from relation. snapshot_id {}, edge_id {}, edge_relation {:?}",
+            snapshot_id, edge_id, edge_relation
+        );
         let snapshot_id = snapshot_id as i64;
         let info = self
             .edge_manager
@@ -740,6 +770,10 @@ impl GraphStore {
         &self, snapshot_id: SnapshotId, vertex_id: Option<VertexId>, direction: EdgeDirection,
         label_id: Option<LabelId>, condition: Option<&Condition>, property_ids: Option<&Vec<PropertyId>>,
     ) -> GraphResult<Records<RocksEdgeImpl>> {
+        info!(
+            "query edges. snapshot_id {}, vertex_id {:?}, direction {:?}, label_id {:?}, condition {:?}",
+            snapshot_id, vertex_id, direction, label_id, condition
+        );
         let mut iter = match label_id {
             Some(label_id) => {
                 match self
@@ -798,6 +832,10 @@ impl GraphStore {
     }
 
     pub fn delete_table_by_prefix(&self, table_prefix: i64, vertex_table: bool) -> GraphResult<()> {
+        info!(
+            "delete table by prefix. table_prefix {}, vertex_table {}",
+            table_prefix, vertex_table
+        );
         let end = if vertex_table { table_prefix + 1 } else { table_prefix + 2 };
         let end_key = transform::i64_to_arr(end.to_be());
         let start_key = transform::i64_to_arr(table_prefix.to_be());

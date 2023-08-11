@@ -70,6 +70,12 @@ impl EdgeKindInfoRef {
     }
 }
 
+impl std::fmt::Debug for EdgeKindInfoRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.inner.edge_kind)
+    }
+}
+
 impl Deref for EdgeKindInfoRef {
     type Target = EdgeKindInfo;
 

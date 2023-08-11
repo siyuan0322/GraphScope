@@ -23,6 +23,7 @@ public class DataLoadTarget {
     private int labelId;
     private int srcLabelId;
     private int dstLabelId;
+    private boolean reuseTableId;
 
     private DataLoadTarget(
             String label,
@@ -30,7 +31,8 @@ public class DataLoadTarget {
             String dstLabel,
             int labelId,
             int srcLabelId,
-            int dstLabelId) {
+            int dstLabelId,
+            boolean reuseTableId) {
         this.label = label;
         this.srcLabel = srcLabel;
         this.dstLabel = dstLabel;
@@ -38,6 +40,7 @@ public class DataLoadTarget {
         this.labelId = labelId;
         this.srcLabelId = srcLabelId;
         this.dstLabelId = dstLabelId;
+        this.reuseTableId = reuseTableId;
     }
 
     public String getLabel() {
@@ -64,6 +67,10 @@ public class DataLoadTarget {
         return dstLabelId;
     }
 
+    public boolean isReuseTableId() {
+        return reuseTableId;
+    }
+
     public DataLoadTargetPb toProto() {
         DataLoadTargetPb.Builder builder = DataLoadTargetPb.newBuilder();
         builder.setLabel(this.label);
@@ -76,6 +83,7 @@ public class DataLoadTarget {
             builder.setDstLabel(this.dstLabel);
             builder.setDstLabelId(this.dstLabelId);
         }
+        builder.setReuseTableId(this.reuseTableId);
         return builder.build();
     }
 
@@ -86,7 +94,8 @@ public class DataLoadTarget {
         int labelId = proto.getLabelId();
         int srcLabelId = proto.getSrcLabelId();
         int dstLabelId = proto.getDstLabelId();
-        return new DataLoadTarget(label, srcLabel, dstLabel, labelId, srcLabelId, dstLabelId);
+        boolean reuseTableId = proto.getReuseTableId();
+        return new DataLoadTarget(label, srcLabel, dstLabel, labelId, srcLabelId, dstLabelId, reuseTableId);
     }
 
     @Override
@@ -100,6 +109,9 @@ public class DataLoadTarget {
                 + '\''
                 + ", dstLabel='"
                 + dstLabel
+                + '\''
+                + ", reuseTableId="
+                + reuseTableId
                 + '\''
                 + '}';
     }
@@ -120,6 +132,7 @@ public class DataLoadTarget {
         private int srcVertexLabelId;
         private String dstVertexLabel;
         private int dstVertexLabelId;
+        private boolean reuseTableId;
 
         private Builder() {}
 
@@ -162,6 +175,11 @@ public class DataLoadTarget {
             return this;
         }
 
+        public Builder setReuseTableId(boolean reuseTableId) {
+            this.reuseTableId = reuseTableId;
+            return this;
+        }
+
         public DataLoadTarget build() {
             return new DataLoadTarget(
                     label,
@@ -169,7 +187,8 @@ public class DataLoadTarget {
                     dstVertexLabel,
                     labelId,
                     srcVertexLabelId,
-                    dstVertexLabelId);
+                    dstVertexLabelId,
+                    reuseTableId);
         }
     }
 }

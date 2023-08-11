@@ -25,6 +25,7 @@ public class HdfsStorage extends ExternalStorage {
             fs.copyToLocalFile(new Path(srcPath), new Path(dstPath));
         } else {
             logger.warn("Path doesn't exists: " + srcPath);
+            // raise IOException("Path doesn't exists: " + srcPath);
         }
     }
 

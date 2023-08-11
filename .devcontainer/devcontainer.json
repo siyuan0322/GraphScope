@@ -24,7 +24,8 @@
 				"streetsidesoftware.code-spell-checker",
 				"eamodio.gitlens",
 				"github.copilot",
-				"github.copilot-labs"
+				"github.copilot-labs",
+				"ms-python.vscode-pylance"
 			]
 		}
 	},
@@ -41,7 +42,7 @@
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [3000],
-
+	"appPort": [12312, 55556],
 	// Use 'portsAttributes' to set default properties for specific forwarded ports.
 	// More info: https://containers.dev/implementors/json_reference/#port-attributes
 	// "portsAttributes": {

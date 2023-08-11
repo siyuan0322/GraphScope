@@ -42,6 +42,7 @@ impl IntoIterator for VertexTypeScan {
                     let val = unsafe { raw_val.to_slice() };
                     match parse_vertex_key(key) {
                         Ok((vertex_id, ts)) => {
+                            info!("VertexScan IntoIter: vertex_id: {}, ts: {}, data_ts: {}", vertex_id, ts, data_ts);
                             if data_ts < ts
                                 || match previous_vertex {
                                     None => false,

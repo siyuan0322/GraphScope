@@ -66,6 +66,12 @@ pub struct VertexTypeInfoRef {
     _guard: Guard,
 }
 
+impl std::fmt::Debug for VertexTypeInfoRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "VertexTypeInfoRef [{}]", self.info.label)
+    }
+}
+
 impl VertexTypeInfoRef {
     pub fn get_label(&self) -> LabelId {
         self.info.label
@@ -272,8 +278,8 @@ impl VertexTypeManagerBuilder {
         let codec = Codec::from(type_def);
         let res = info.update_codec(si, codec);
         res_unwrap!(res, create, si, label, type_def)?;
-        self.map.insert(label, Arc::new(info));
         info!("Created vertex type: {}, {:?}", info.label, info.lifetime);
+        self.map.insert(label, Arc::new(info));
         Ok(())
     }
 
@@ -293,7 +299,7 @@ impl VertexTypeManagerBuilder {
                 return Ok(info.as_ref());
             } else {
                 let msg = format!("vertex#{} is not visible at {}, start: {:?}, end: {:?}", label, si, info.lifetime.get_start(), info.lifetime.get_end());
-                let err = gen_graph_err!(GraphErrorCode::TypeNotFound, msg, get_info, si, label);
+                let err = gen_graph_err!(GraphErrorCode::TypeNotFound, msg, get, si, label);
                 return Err(err);
             }
         }

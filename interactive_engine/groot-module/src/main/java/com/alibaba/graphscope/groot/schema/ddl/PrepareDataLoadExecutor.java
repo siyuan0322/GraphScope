@@ -38,7 +38,10 @@ public class PrepareDataLoadExecutor extends AbstractDdlExecutor {
         String label = dataLoadTarget.getLabel();
         String srcLabel = dataLoadTarget.getSrcLabel();
         String dstLabel = dataLoadTarget.getDstLabel();
+        System.out.println(dataLoadTarget);
 
+        boolean reuseTableId = dataLoadTarget.isReuseTableId();
+        boolean isVertex = (srcLabel == null || srcLabel.isEmpty());
         long version = graphDef.getSchemaVersion();
         if (!graphDef.hasLabel(label)) {
             throw new DdlException(
@@ -47,16 +50,20 @@ public class PrepareDataLoadExecutor extends AbstractDdlExecutor {
 
         GraphDef.Builder graphDefBuilder = GraphDef.newBuilder(graphDef);
         TypeDef typeDef = graphDef.getTypeDef(label);
-        long tableIdx = graphDef.getTableIdx();
-        tableIdx++;
+        long nextGraphDefTableIdx = graphDef.getTableIdx() + 1;
         DataLoadTarget.Builder targetBuilder = DataLoadTarget.newBuilder(dataLoadTarget);
-        if (srcLabel == null || srcLabel.isEmpty()) {
+        if (isVertex) {
             // Vertex type
             if (typeDef.getTypeEnum() != TypeEnum.VERTEX) {
                 throw new DdlException(
                         "invalid data load target [" + dataLoadTarget + "], label is not a vertex");
             }
-            graphDefBuilder.putVertexTableId(typeDef.getTypeLabelId(), tableIdx);
+            if (reuseTableId) {
+                long curTableIdx = graphDef.getVertexTableIds().get(typeDef.getTypeLabelId());
+                graphDefBuilder.putVertexTableId(typeDef.getTypeLabelId(), curTableIdx);
+            } else {
+                graphDefBuilder.putVertexTableId(typeDef.getTypeLabelId(), nextGraphDefTableIdx);
+            }
             targetBuilder.setLabelId(typeDef.getLabelId());
         } else {
             // Edge kind
@@ -99,17 +106,27 @@ public class PrepareDataLoadExecutor extends AbstractDdlExecutor {
                 throw new DdlException(
                         "invalid data load target [" + dataLoadTarget + "], edgeKind not exists");
             }
-            graphDefBuilder.putEdgeTableId(edgeKind, tableIdx);
+            if (reuseTableId) {
+                long curTableIdx = graphDef.getEdgeTableIds().get(edgeKind);
+                graphDefBuilder.putEdgeTableId(edgeKind, curTableIdx);
+            } else {
+                graphDefBuilder.putEdgeTableId(edgeKind, nextGraphDefTableIdx);
+            }
         }
         version++;
-        graphDefBuilder.setTableIdx(tableIdx);
+        if (reuseTableId) {
+            graphDefBuilder.setTableIdx(graphDef.getTableIdx());
+        } else {
+            graphDefBuilder.setTableIdx(nextGraphDefTableIdx);
+        }
         graphDefBuilder.setVersion(version);
         GraphDef newGraphDef = graphDefBuilder.build();
         List<Operation> operations = new ArrayList<>(partitionCount);
         for (int i = 0; i < partitionCount; i++) {
             operations.add(
-                    new PrepareDataLoadOperation(i, version, targetBuilder.build(), tableIdx));
+                    new PrepareDataLoadOperation(i, version, targetBuilder.build(), 0));
         }
+        System.out.println("New graphDef: " + graphDef.toProto());
         return new DdlResult(newGraphDef, operations);
     }
 }

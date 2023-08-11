@@ -197,7 +197,7 @@ impl ExternalStorageBackup for RocksDBBackupEngine {
         Ok(())
     }
 
-    fn purge_old_backups(&self, num_backups_to_keep: usize) -> GraphResult<()> {
+    fn purge_old_backups(&mut self, num_backups_to_keep: usize) -> GraphResult<()> {
         self.backup_engine.purge_old_backups(num_backups_to_keep)
             .map_err(|e| {
             let msg =
@@ -246,6 +246,7 @@ impl ExternalStorageBackup for RocksDBBackupEngine {
 #[allow(unused_variables)]
 fn init_options(options: &HashMap<String, String>) -> Options {
     let mut ret = Options::default();
+    info!("RocksDB options: {:?}", options);
     ret.create_if_missing(true);
     // TODO: Add other customized db options.
     if let Some(conf_str) = options.get("store.rocksdb.compression.type") {
@@ -289,23 +290,34 @@ fn init_options(options: &HashMap<String, String>) -> Options {
         let background_jobs = conf_str.parse().unwrap();
         ret.set_max_background_jobs(background_jobs);
     }
+    if let Some(conf_str) = options.get("store.rocksdb.ingest.ingest_behind") {
+        let ingest_behind = str_to_bool(conf_str.as_str());
+        ret.set_allow_ingest_behind(ingest_behind);
+    }
     ret
 }
 
 fn init_ingest_options(options: &HashMap<String, String>) -> IngestExternalFileOptions {
+    info!("RocksDB options: {:?}", options);
+
     let mut opts = IngestExternalFileOptions::default();
     opts.set_move_files(true);
     if let Some(ingest_behind) = options.get("store.rocksdb.ingest.ingest_behind") {
-        let ingest_behind: bool = match ingest_behind.as_str() {
-            "true" => true,
-            "t" => true,
-            "True" => true,
-            "1" => true,
-            _ => false  // Or whatever appropriate default value or error.
-        };
+        let ingest_behind = str_to_bool(ingest_behind.as_str());
         opts.set_ingest_behind(ingest_behind);
     }
     opts
+}
+
+fn str_to_bool(str: &str) -> bool {
+    let ret: bool = match str {
+        "true" => true,
+        "t" => true,
+        "True" => true,
+        "1" => true,
+        _ => false  // Or whatever appropriate default value or error.
+    };
+    ret
 }
 
 pub struct RocksDBIter<'a> {

@@ -163,6 +163,7 @@ message DataLoadTargetPb {
   int32 labelId = 4;
   int32 srcLabelId = 5;
   int32 dstLabelId = 6;
+  bool reuseTableId = 7;
 }
 
 message PrepareDataLoadPb {
