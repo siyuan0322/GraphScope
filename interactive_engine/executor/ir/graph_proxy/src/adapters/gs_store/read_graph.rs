@@ -178,7 +178,9 @@ where
                 .get_partition_id(vid as VertexId) as PartitionId;
             let worker_partitions = assign_worker_partitions(&self.server_partitions, &self.cluster_info)?;
             if worker_partitions.contains(&partition_id) {
-                Ok(self.get_vertex(&[vid as ID], _params)?.next())
+                let mut params = QueryParams::default();
+                params.labels = vec![label_id];
+                Ok(self.get_vertex(&[vid as ID], &params)?.next())
             } else {
                 Ok(None)
             }
@@ -241,17 +243,17 @@ where
         let column_filter_pushdown = self.column_filter_pushdown;
         // also need props in filter, because `filter_limit!`
         let prop_ids = if column_filter_pushdown {
-            // props that will be used in futher compute
+            // props that will be used in further compute
             let cache_prop_ids = encode_storage_prop_keys(params.columns.as_ref())?;
             extract_needed_columns(params.filter.as_ref(), cache_prop_ids.as_ref())?
         } else {
             // column filter not pushdown, ir assume that it can get all props locally
             get_all_storage_props()
         };
-
+        // let label_ids = params.labels;
         let filter = params.filter.clone();
         let partition_label_vertex_ids =
-            get_partition_label_vertex_ids(ids, self.partition_manager.clone());
+            get_partition_label_vertex_ids(ids, params.labels.get(0), self.partition_manager.clone());
 
         let columns = params.columns.clone();
         let result = store
@@ -738,6 +740,7 @@ fn encode_store_prop_val(prop_val: Object) -> Property {
 fn assign_worker_partitions(
     query_partitions: &Vec<u32>, cluster_info: &Arc<dyn ClusterInfo>,
 ) -> GraphProxyResult<Vec<PartitionId>> {
+    debug!("assign worker partitions");
     let workers_num = cluster_info.get_local_worker_num()?;
     let worker_idx = cluster_info.get_worker_index()?;
     let mut worker_partition_list = vec![];
@@ -756,7 +759,7 @@ fn assign_worker_partitions(
 /// Transform type of ids to PartitionLabeledVertexIds as required by graphscope store,
 /// which consists of (PartitionId, Vec<(Option<StoreLabelId>, Vec<VertexId>)>)
 fn get_partition_label_vertex_ids(
-    ids: &[ID], graph_partition_manager: Arc<dyn GraphPartitionManager>,
+    ids: &[ID], label: Option<&LabelId>, graph_partition_manager: Arc<dyn GraphPartitionManager>,
 ) -> Vec<PartitionLabeledVertexIds> {
     let mut partition_label_vid_map = HashMap::new();
     for vid in ids {
@@ -765,9 +768,14 @@ fn get_partition_label_vertex_ids(
             .entry(partition_id)
             .or_insert(HashMap::new());
         label_vid_list
-            .entry(None)
-            .or_insert(vec![])
-            .push(*vid as VertexId);
+        .entry(
+            label
+                .cloned()
+                .map(|label_id| label_id as StoreLabelId),
+        )
+        .or_insert(vec![])
+        .push(*vid as VertexId)
+        ;
     }
 
     partition_label_vid_map

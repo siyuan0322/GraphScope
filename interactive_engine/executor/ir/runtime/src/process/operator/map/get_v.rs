@@ -179,8 +179,13 @@ impl FilterMapFunction<Record, Record> for AuxiliaOperator {
                 EntryType::Vertex => {
                     let graph = get_graph().ok_or_else(|| FnExecError::NullGraphError)?;
                     let id = entry.id();
+                    // TODO: this is for test. enforcing get vertex from store with label information for groot.
+                    let mut query_param = self.query_params.clone();
+                    if entry.label().is_some() {
+                        query_param.labels = vec![entry.label().unwrap()];
+                    }
                     if let Some(vertex) = graph
-                        .get_vertex(&[id], &self.query_params)?
+                        .get_vertex(&[id], &query_param)?
                         .next()
                         .map(|vertex| DynEntry::new(vertex))
                     {
