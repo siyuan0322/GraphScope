@@ -227,6 +227,7 @@
     <maven.compiler.target>1.8</maven.compiler.target>
 
     <noe4j.version>4.4.0</noe4j.version>
+    <bucket4j.version>8.7.0</bucket4j.version>
   </properties>
 
   <dependencyManagement>
@@ -652,6 +653,13 @@
         <version>${immutables.version}</version>
         <scope>provided</scope>
       </dependency>
+      <!-- https://mvnrepository.com/artifact/com.bucket4j/bucket4j-core -->
+      <dependency>
+        <groupId>com.bucket4j</groupId>
+        <artifactId>bucket4j-core</artifactId>
+        <version>${bucket4j.version}</version>
+      </dependency>
+
     </dependencies>
   </dependencyManagement>
 

@@ -59,6 +59,7 @@ data:
     gremlin.server.port=12312
     ## disable neo4j when launching groot server by default
     neo4j.bolt.server.disabled=true
+    frontend.query.per.second.limit={{ .Values.frontendQueryPerSecondLimit }}
 
     dns.name.prefix.frontend=FRONTEND
     dns.name.prefix.ingestor=INGESTOR

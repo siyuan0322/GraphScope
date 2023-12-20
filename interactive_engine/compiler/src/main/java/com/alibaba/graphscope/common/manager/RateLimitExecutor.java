@@ -18,16 +18,19 @@ package com.alibaba.graphscope.common.manager;
 
 import com.alibaba.graphscope.common.config.Configs;
 import com.alibaba.graphscope.common.config.FrontendConfig;
-import com.google.common.util.concurrent.RateLimiter;
+
+import io.github.bucket4j.Bandwidth;
+import io.github.bucket4j.Bucket;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.concurrent.*;
 
 public class RateLimitExecutor extends ThreadPoolExecutor {
     private static final Logger logger = LoggerFactory.getLogger(RateLimitExecutor.class);
-    private final RateLimiter rateLimiter;
+    private final Bucket bucket;
 
     public RateLimitExecutor(
             Configs configs,
@@ -46,18 +49,33 @@ public class RateLimitExecutor extends ThreadPoolExecutor {
                 workQueue,
                 threadFactory,
                 handler);
+
         int permitsPerSecond = FrontendConfig.QUERY_PER_SECOND_LIMIT.get(configs);
-        this.rateLimiter = RateLimiter.create(permitsPerSecond);
+        int permitsPerMilli = permitsPerSecond / 200;
+        permitsPerMilli = permitsPerMilli == 0 ? 1 : permitsPerMilli;
+        int permitsPerMilli2 = permitsPerSecond / 100;
+        permitsPerMilli = permitsPerMilli == 0 ? 1 : permitsPerMilli;
+        logger.info(
+                "Configured rate limiter: {}/s, {}/5ms, {}/10ms",
+                permitsPerSecond,
+                permitsPerMilli,
+                permitsPerMilli2);
+        Bandwidth second = Bandwidth.simple(permitsPerSecond, Duration.ofSeconds(1));
+        Bandwidth millis = Bandwidth.simple(permitsPerMilli, Duration.ofMillis(5));
+        Bandwidth millis2 = Bandwidth.simple(permitsPerMilli2, Duration.ofMillis(10));
+        this.bucket = Bucket.builder().addLimit(second).addLimit(millis).addLimit(millis2).build();
     }
 
     public Future<?> submit(Runnable task) {
-        if (rateLimiter.tryAcquire()) {
-            return super.submit(task);
+        try {
+            if (bucket.asBlocking().tryConsume(1, Duration.ofMillis(500))) {
+                return super.submit(task);
+            }
+        } catch (InterruptedException ignored) {
+
         }
         throw new RejectedExecutionException(
-                "rate limit exceeded, current limit is "
-                        + rateLimiter.getRate()
-                        + " per second. Please increase the QPS limit by the config"
+                "rate limit exceeded, Please increase the QPS limit by the config"
                         + " 'query.per.second.limit' or slow down the query sending speed");
     }
 }

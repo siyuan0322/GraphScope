@@ -363,6 +363,8 @@ logRecycleEnable: true
 
 ## Frontend config
 enableHashGenerateEid: false
+## 1 qps/nanosecond
+frontendQueryPerSecondLimit: 1000000000
 
 ## Store Config
 storeDataPath: "/var/lib/graphscope-store"

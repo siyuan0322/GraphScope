@@ -193,4 +193,4 @@ We've listed useful configuration keys in the following:
 | pegasusTimeout              | the maximum duration in `ms` you allow each query to run              |             24,000              |
 | pegasusBatchSize            | the maximum size of streaming records can be output for an operator   |              1024               |
 | pegasusOutputCapacity       | the maximum number of streaming records can be output for an operator |               16                |
-| frontendQueryPerSecondLimit | the maximum qps can be handled by frontend service                    | 2147483647 (without limitation) |
+| frontendQueryPerSecondLimit | the maximum qps can be handled by frontend service                    | 1000000000 (without limitation) |
