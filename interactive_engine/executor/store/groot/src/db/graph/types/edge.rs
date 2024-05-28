@@ -337,7 +337,11 @@ impl EdgeManagerBuilder {
     ) -> GraphResult<()> {
         self.inner.create_edge_type(si, label, type_def)
     }
-
+    pub fn update_edge_type(
+        &mut self, si: SnapshotId, label: LabelId, type_def: &TypeDef,
+    ) -> GraphResult<()> {
+        self.inner.update_edge_type(si, label, type_def)
+    }
     pub fn drop_edge_type(&mut self, si: SnapshotId, label: LabelId) -> GraphResult<()> {
         self.inner.drop_edge_type(si, label)
     }
@@ -451,11 +455,11 @@ impl EdgeManagerInner {
             );
             return Err(err);
         }
-        let info = EdgeInfo::new(si, label);
-        let codec = Codec::from(type_def);
-        let res = info.add_codec(si, codec);
-        res_unwrap!(res, update_edge, si, label, type_def)?;
-        self.info_map.insert(label, Arc::new(info));
+        if let Some(info) = self.info_map.get(&label) {
+            let codec = Codec::from(type_def);
+            let res = info.add_codec(si, codec);
+            res_unwrap!(res, update_edge, si, label, type_def)?;
+        }
         Ok(())
     }
 

@@ -42,6 +42,7 @@ impl TypeCommon {
     }
 
     pub fn update_codec(&self, si: SnapshotId, codec: Codec) -> GraphResult<()> {
+        info!("add codec {}, {}", si, codec.get_version());
         self.codec_manager.add_codec(si, codec)
     }
 

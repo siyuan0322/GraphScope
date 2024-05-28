@@ -30,7 +30,7 @@ public abstract class AbstractAddTypePropertiesExecutor extends AbstractDdlExecu
         
         TypeDef originTypeDef = graphDef.getTypeDef(label);
         if (originTypeDef == null) {
-            throw new DdlException("LabelName [" + label + "] can not found exists label in Graph Def.");
+            throw new DdlException("LabelName [" + label + "] cannot found label in Graph Def.");
         }
         if (originTypeDef.getTypeEnum() != typeDef.getTypeEnum()) {
             throw new DdlException("LabelName [" + label + "] type enum has been change. origin type ["
@@ -48,6 +48,8 @@ public abstract class AbstractAddTypePropertiesExecutor extends AbstractDdlExecu
             throw new DdlException(
                     "label [" + label + "] not found, schema version [" + version + "]");
         }
+        version++;
+        logger.info("New version: {}", version);
 
         Map<LabelId, Long> vertexTableIdMap = graphDef.getVertexTableIds();
         logger.info("vertexTableIdMap is " + JSON.toJson(vertexTableIdMap));
@@ -79,7 +81,8 @@ public abstract class AbstractAddTypePropertiesExecutor extends AbstractDdlExecu
 
         GraphDef.Builder graphDefBuilder = GraphDef.newBuilder(graphDef);
         TypeDef.Builder newTypeDefBuilder = TypeDef.newBuilder(typeDef);
-        // addLabelProperties doesnt has labelId, need set originType LabelId
+        newTypeDefBuilder.setVersionId((int) version);
+        // addLabelProperties doesn't have labelId, need set originType LabelId
         newTypeDefBuilder.setLabelId(labelId);
 
         int propertyIdx = graphDef.getPropertyIdx();
@@ -117,6 +120,7 @@ public abstract class AbstractAddTypePropertiesExecutor extends AbstractDdlExecu
                             .build());
         }
         newTypeDefBuilder.setPropertyDefs(originPropertyDefs);
+        newTypeDefBuilder.setVersionId((int) version);
         TypeDef originNewTypeDef = newTypeDefBuilder.build();
 
         newTypeDefBuilder.setPropertyDefs(newPropertyDefs);
@@ -127,7 +131,6 @@ public abstract class AbstractAddTypePropertiesExecutor extends AbstractDdlExecu
                     "large than labelIdx [" + graphDef.getLabelIdx() + "]");
         }
 
-        version++;
         graphDefBuilder.setVersion(version);
         graphDefBuilder.addTypeDef(originNewTypeDef);
 

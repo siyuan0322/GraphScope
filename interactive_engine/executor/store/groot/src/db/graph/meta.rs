@@ -108,24 +108,33 @@ impl Meta {
             match item {
                 MetaItem::CreateVertexType(x) => {
                     let label_id = x.type_def.get_label_id();
+                    info!("CreateVertexType label {:?}, table {:?}, si {:?}, type def {:?}", label_id, x.table_id, x.si, x.type_def);
                     let mut graph_def = self.graph_def_lock.lock()?;
                     let current_label_idx = graph_def.get_label_idx();
                     if current_label_idx >= label_id {
-                        let msg = format!(
-                            "current label idx {}, create label id {}",
-                            current_label_idx, label_id
-                        );
-                        return Err(GraphError::new(GraphErrorCode::InvalidOperation, msg));
+                        info!("Found potentially add vertex property operation");
+                        graph_def.update_type(label_id, x.type_def.clone());
+                        graph_def.increase_version();
+                        vertex_manager_builder.update_type(x.si, x.label_id, &x.type_def)?;
+                        vertex_manager_builder
+                            .get_info(x.si, x.label_id)
+                            .and_then(|info| info.online_table(Table::new(x.si, x.table_id)))?;
+                        // let msg = format!(
+                        //     "current label idx {}, create label id {}",
+                        //     current_label_idx, label_id
+                        // );
+                        // return Err(GraphError::new(GraphErrorCode::InvalidOperation, msg));
+                    } else {
+                        graph_def.add_type(label_id, x.type_def.clone())?;
+                        graph_def.put_vertex_table_id(label_id, x.table_id);
+                        graph_def.set_label_idx(label_id);
+                        graph_def.set_table_idx(x.table_id);
+                        graph_def.increase_version();
+                        vertex_manager_builder.create(x.si, x.label_id, &x.type_def)?;
+                        vertex_manager_builder
+                            .get_info(x.si, x.label_id)
+                            .and_then(|info| info.online_table(Table::new(x.si, x.table_id)))?;
                     }
-                    graph_def.add_type(label_id, x.type_def.clone())?;
-                    graph_def.put_vertex_table_id(label_id, x.table_id);
-                    graph_def.set_label_idx(label_id);
-                    graph_def.set_table_idx(x.table_id);
-                    graph_def.increase_version();
-                    vertex_manager_builder.create(x.si, x.label_id, &x.type_def)?;
-                    vertex_manager_builder
-                        .get_info(x.si, x.label_id)
-                        .and_then(|info| info.online_table(Table::new(x.si, x.table_id)))?;
                 }
                 MetaItem::DropVertexType(x) => {
                     vertex_manager_builder.drop(x.si, x.label_id)?;
@@ -135,19 +144,24 @@ impl Meta {
                 }
                 MetaItem::CreateEdgeType(x) => {
                     let label_id = x.type_def.get_label_id();
+                    info!("CreateEdgeType label {:?}, si {:?}, typedef {:?}", label_id, x.si, x.type_def);
                     let mut graph_def = self.graph_def_lock.lock()?;
                     let current_label_idx = graph_def.get_label_idx();
                     if current_label_idx >= label_id {
-                        let msg = format!(
-                            "current label idx {}, create label id {}",
-                            current_label_idx, label_id
-                        );
-                        return Err(GraphError::new(GraphErrorCode::InvalidOperation, msg));
+                        info!("Found potentially add edge property operation");
+                        graph_def.update_type(label_id, x.type_def.clone());
+                        edge_manager_builder.update_edge_type(x.si, x.label_id, &x.type_def)?;
+                        // let msg = format!(
+                        //     "current label idx {}, create label id {}",
+                        //     current_label_idx, label_id
+                        // );
+                        // return Err(GraphError::new(GraphErrorCode::InvalidOperation, msg));
+                    } else {
+                        graph_def.add_type(label_id, x.type_def.clone())?;
+                        graph_def.set_label_idx(label_id);
+                        graph_def.increase_version();
+                        edge_manager_builder.create_edge_type(x.si, x.label_id, &x.type_def)?;
                     }
-                    graph_def.add_type(label_id, x.type_def.clone())?;
-                    graph_def.set_label_idx(label_id);
-                    graph_def.increase_version();
-                    edge_manager_builder.create_edge_type(x.si, x.label_id, &x.type_def)?;
                 }
                 MetaItem::AddEdgeKind(x) => {
                     edge_manager_builder.add_edge_kind(x.si, &x.edge_kind)?;
@@ -288,6 +302,9 @@ impl Meta {
         // 2. Fetch existing `TypeDef` for the label_id.
         let mut graph_def = self.graph_def_lock.lock()?;
         if let Some(mut cloned_existing_typedef) = graph_def.get_type(&label_id).cloned() {
+            info!("old version: {}, new version: {}", cloned_existing_typedef.get_version(), type_def.get_version());
+            cloned_existing_typedef.set_version(type_def.get_version());
+
             for new_property in type_def.get_prop_defs() {
                 let new_property_name = &new_property.name;
                 if cloned_existing_typedef.get_prop_defs().any(|p| &p.id == &new_property.id || p.name == *new_property_name) {
@@ -356,6 +373,9 @@ impl Meta {
         self.check_version(schema_version)?;
         let mut graph_def = self.graph_def_lock.lock()?;
         if let Some(mut cloned_existing_typedef) = graph_def.get_type(&label_id).cloned() {
+            info!("old version: {}, new version: {}", cloned_existing_typedef.get_version(), type_def.get_version());
+            cloned_existing_typedef.set_version(type_def.get_version());
+
             for new_property in type_def.get_prop_defs() {
                 let new_property_name = &new_property.name;
                 if cloned_existing_typedef.get_prop_defs().any(|p| &p.id == &new_property.id || p.name == *new_property_name) {

@@ -170,6 +170,8 @@ public class TypeDef implements GraphElement {
             builder.setTypeEnum(typeEnum.toProto());
         }
         builder.setComment(comment);
+        builder.setVersionId(versionId);
+
         return builder.build();
     }
 
@@ -258,7 +260,10 @@ public class TypeDef implements GraphElement {
             this.comment = comment;
             return this;
         }
-
+        public Builder setVersionId(int versionId) {
+            this.versionId = versionId;
+            return this;
+        }
         public TypeDef build() {
             return new TypeDef(typeEnum, versionId, label, labelId, properties, comment);
         }

@@ -23,12 +23,14 @@ import com.alibaba.graphscope.groot.schema.request.DdlException;
 import com.alibaba.graphscope.proto.groot.TypeDefPb;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public abstract class AbstractCreateTypeExecutor extends AbstractDdlExecutor {
+    private static final Logger logger = LoggerFactory.getLogger(AbstractCreateTypeExecutor.class);
 
     private static final String NAME_REGEX = "^\\w{1,128}$";
 
@@ -48,7 +50,8 @@ public abstract class AbstractCreateTypeExecutor extends AbstractDdlExecutor {
             throw new DdlException(
                     "label [" + label + "] already exists, schema version [" + version + "]");
         }
-
+        version++;
+        logger.info("New version: {}", version);
         if (typeDef.getTypeEnum() == TypeEnum.VERTEX) {
             if (this instanceof CreateEdgeTypeExecutor) {
                 throw new DdlException("Expect edge type but got vertex type");
@@ -90,9 +93,9 @@ public abstract class AbstractCreateTypeExecutor extends AbstractDdlExecutor {
         int labelIdx = graphDef.getLabelIdx() + 1;
         LabelId labelId = new LabelId(labelIdx);
         typeDefBuilder.setLabelId(labelId);
+        typeDefBuilder.setVersionId((int) version);
         TypeDef newTypeDef = typeDefBuilder.build();
 
-        version++;
         graphDefBuilder.setVersion(version);
         graphDefBuilder.addTypeDef(newTypeDef);
         graphDefBuilder.setLabelIdx(labelIdx);

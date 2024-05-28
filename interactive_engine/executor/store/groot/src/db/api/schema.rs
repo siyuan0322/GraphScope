@@ -183,7 +183,9 @@ impl TypeDef {
     pub fn get_version(&self) -> i32 {
         self.version
     }
-
+    pub fn set_version(&mut self, version: i32) {
+        self.version = version;
+    }
     pub fn get_prop_defs(&self) -> impl Iterator<Item = &PropDef> {
         self.properties.values()
     }

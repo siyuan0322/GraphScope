@@ -24,6 +24,7 @@ pub fn parse_vertex_key(key: &[u8]) -> GraphResult<(VertexId, SnapshotId)> {
     let reader = UnsafeBytesReader::new(key);
     let vertex_id = reader.read_i64(8).to_be();
     let ts = !reader.read_i64(16).to_be();
+    info!("[parse_vertex_key]: key {:?}, vertex_id: {}, ts: {}", key, vertex_id, ts);
     Ok((vertex_id, ts))
 }
 
@@ -33,15 +34,18 @@ pub fn parse_vertex_key(key: &[u8]) -> GraphResult<(VertexId, SnapshotId)> {
 /// the backward edges. And to avoid duplication of vertex tables' prefixes and edge tables', we using
 /// 2 * X to identify vertex table. As any type has an unique table id, all prefixes will be different.
 pub fn vertex_table_prefix(id: TableId) -> i64 {
+    info!("[vertex_table_prefix]: table id {:?}", id);
     id << 1
 }
 
 pub fn vertex_table_prefix_key(table_id: TableId) -> [u8; 8] {
+    info!("[vertex_table_prefix_key] table id {:?}", table_id);
     let prefix = vertex_table_prefix(table_id);
     transform::i64_to_arr(prefix.to_be())
 }
 
 pub fn edge_table_prefix(table_id: TableId, direction: EdgeDirection) -> i64 {
+    info!("[edge_table_prefix] table id {:?}, direction {:?}", table_id, direction);
     match direction {
         EdgeDirection::Out => table_id << 1,
         EdgeDirection::In => table_id << 1 | 1,
@@ -50,6 +54,7 @@ pub fn edge_table_prefix(table_id: TableId, direction: EdgeDirection) -> i64 {
 }
 
 pub fn edge_key(table_id: TableId, id: EdgeId, direction: EdgeDirection, ts: SnapshotId) -> [u8; 40] {
+    info!("[edge_key] table id {:?}, direction {:?}, ts: {:?}", table_id, direction, ts);
     let mut ret = [0u8; 40];
     let mut writer = UnsafeBytesWriter::new(&mut ret);
     let (x, y, z, w) = match direction {
@@ -66,6 +71,7 @@ pub fn edge_key(table_id: TableId, id: EdgeId, direction: EdgeDirection, ts: Sna
 }
 
 pub fn edge_table_prefix_key(table_id: TableId, direction: EdgeDirection) -> [u8; 8] {
+    info!("[edge_table_prefix_key] table id {:?}, direction {:?}", table_id, direction);
     let prefix = edge_table_prefix(table_id, direction);
     transform::i64_to_arr(prefix.to_be())
 }
@@ -78,6 +84,7 @@ pub fn parse_edge_key(key: &[u8]) -> (EdgeId, SnapshotId) {
     let id2 = reader.read_i64(16).to_be();
     let id = reader.read_i64(24).to_be();
     let ts = !reader.read_i64(32).to_be();
+    info!("[parse_edge_key] key {:?}, table id {:?}, ts {:?}", key, prefix, ts);
     if (prefix & 1) == 0 {
         // out direction
         (EdgeId::new(id1, id2, id), ts)
@@ -87,6 +94,7 @@ pub fn parse_edge_key(key: &[u8]) -> (EdgeId, SnapshotId) {
 }
 
 pub fn edge_prefix(id: TableId, vertex_id: VertexId, direction: EdgeDirection) -> [u8; 16] {
+    info!("[edge_prefix] table id: {:?}, vertex id: {:?}, direction: {:?}", id, vertex_id, direction);
     let prefix = edge_table_prefix(id, direction);
     let mut ret = [0; 16];
     let mut writer = UnsafeBytesWriter::new(&mut ret);

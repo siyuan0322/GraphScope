@@ -143,11 +143,14 @@ impl Decoder {
     }
 
     pub fn decode_property<'a>(&self, data: &'a [u8], prop_id: PropertyId) -> Option<ValueRef<'a>> {
+        info!("[decode_property] data {:?}, prop_id {:?}", data, prop_id);
         let reader = UnsafeBytesReader::new(data);
         let idx = *self.target.id_map.get(&prop_id)?;
         if self.fast_mode() {
+            info!("fast mode");
             return self.decode_property_at(&reader, idx);
         }
+        info!("slow mode");
         let internal_id = self.target.props[idx].inner_id;
         let idx = *self.src.inner_id_map.get(&internal_id)?;
         self.decode_property_at(&reader, idx)
@@ -171,6 +174,7 @@ impl Decoder {
     fn decode_fixed_len_property_at<'a>(
         &self, reader: &UnsafeBytesReader<'a>, idx: usize,
     ) -> Option<ValueRef<'a>> {
+        info!("[decode_fixed_len_property_at] idx {:?}", idx);
         let info = &self.src.props[idx];
         let offset = self.src.offsets[idx];
         let bytes = match info.r#type {
@@ -187,6 +191,7 @@ impl Decoder {
     fn decode_var_len_property_at<'a>(
         &self, reader: &UnsafeBytesReader<'a>, idx: usize,
     ) -> Option<ValueRef<'a>> {
+        info!("[decode_var_len_property_at] idx {:?}", idx);
         let end_off = bytes_to_len(reader.read_bytes(self.src.offsets[idx], 3));
         let mut start_off = 0; // idx == self.src.fixed_len_prop_count
         if idx > self.src.fixed_len_prop_count {
@@ -212,6 +217,7 @@ impl Decoder {
     }
 
     fn fast_mode(&self) -> bool {
+        info!("targer version {:?}, src version {:?}", self.target.version, self.src.version);
         self.target.version == self.src.version
     }
 }
@@ -242,6 +248,7 @@ impl<'a> IterDecoder<'a> {
     }
 
     fn fast_path(&self) -> Option<(PropertyId, ValueRef<'a>)> {
+        info!("fast path");
         let v = self
             .decoder
             .decode_property_at(&self.reader, self.cur)?;
@@ -250,6 +257,7 @@ impl<'a> IterDecoder<'a> {
     }
 
     fn slow_path(&self) -> Option<(PropertyId, ValueRef<'a>)> {
+        info!("slow path");
         let info = &self.decoder.target.props[self.cur];
         let prop_id = info.prop_id;
         let internal_id = info.inner_id;
@@ -537,6 +545,7 @@ pub struct CodecManager {
 
 impl CodecManager {
     pub fn new() -> Self {
+        info!("New codec manager!!!");
         CodecManager {
             versions: VersionManager::new(),
             codec_map: Atomic::new(CodecMap::new()),
@@ -566,7 +575,9 @@ impl CodecManager {
             gen_graph_err!(GraphErrorCode::InvalidData, msg, get_map, si)
         })?;
         let mut map_clone = map_ref.clone();
+        info!("[CodecManager::add_codec] before : {:?}", map_clone.len());
         map_clone.insert(version, codec);
+        info!("[CodecManager::add_codec] after version: {}, codec map: {:?}", version, map_clone.len());
         self.codec_map
             .store(Owned::new(map_clone), Ordering::Release);
         self.versions.add(si, version as i64).unwrap();
@@ -611,6 +622,7 @@ impl CodecManager {
 
     #[allow(dead_code)]
     pub fn drop_codec(&self, version: CodecVersion) -> GraphResult<()> {
+        info!("dropped codec version {}", version);
         let _lock = res_unwrap!(self.lock.lock(), drop_codec, version)?;
         let guard = epoch::pin();
         let map = self.get_map(&guard);
@@ -628,6 +640,7 @@ impl CodecManager {
 
     #[allow(dead_code)]
     pub fn gc(&self, si: SnapshotId) -> GraphResult<()> {
+        info!("codec gc");
         res_unwrap!(self.versions.gc(si).map(|_| ()), gc, si)
     }
 
