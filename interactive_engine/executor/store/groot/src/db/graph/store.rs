@@ -720,6 +720,13 @@ impl GraphStore {
                 });
                 res_unwrap!(res, open, config, path)
             }
+            "rocksdb_with_ttl" => {
+                let res = RocksDB::open_with_ttl(config.get_storage_options()).and_then(|db| {
+                    let storage = Arc::new(db);
+                    Self::init(config, storage, path)
+                });
+                res_unwrap!(res, open, config, path)
+            }
             unknown => {
                 let msg = format!("unknown storage {}", unknown);
                 let err = gen_graph_err!(GraphErrorCode::NotSupported, msg, open, config, path);

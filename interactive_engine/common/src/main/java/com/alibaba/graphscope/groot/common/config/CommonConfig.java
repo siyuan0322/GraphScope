@@ -69,6 +69,7 @@ public class CommonConfig {
     public static final Config<Boolean> KAFKA_TEST_CLUSTER_ENABLE =
             Config.boolConfig("kafka.test.cluster.enable", true);
 
+    // Secondary instance https://github.com/facebook/rocksdb/wiki/Read-only-and-Secondary-instances
     public static final Config<Boolean> SECONDARY_INSTANCE_ENABLED =
             Config.boolConfig("secondary.instance.enabled", false);
 
@@ -79,4 +80,10 @@ public class CommonConfig {
 
     public static final Config<Boolean> COLLECT_STATISTICS =
             Config.boolConfig("collect.statistics", false);
+
+    // TTL support https://github.com/facebook/rocksdb/wiki/Time-to-Live
+    public static final Config<Boolean> TTL_INSTANCE_ENABLED = Config.boolConfig("ttl.instance.enabled", false);
+    // Default to one day ttl
+    public static final Config<Long> STORE_TTL_SEC = Config.longConfig("store.ttl.sec", 86400);
+
 }
