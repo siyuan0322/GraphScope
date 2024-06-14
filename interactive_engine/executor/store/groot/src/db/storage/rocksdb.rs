@@ -7,6 +7,7 @@ use std::time::Duration;
 use ::rocksdb::backup::{BackupEngine, BackupEngineOptions, RestoreOptions};
 use ::rocksdb::{DBRawIterator, Env, IngestExternalFileOptions, Options, ReadOptions, DB};
 use crossbeam_epoch::{self as epoch, Atomic, Guard, Owned, Shared};
+use libc::option;
 use rocksdb::WriteBatch;
 
 use super::{StorageIter, StorageRes};
@@ -45,6 +46,20 @@ impl RocksDB {
         })?;
 
         let ret = RocksDB { db: Atomic::new(Arc::new(db)), options: options.clone(), is_secondary: true };
+        Ok(ret)
+    }
+
+    pub fn open_with_ttl(options: &HashMap<String, String>) -> GraphResult<Self> {
+        let opts = init_options(options);
+        let path = options
+            .get("store.data.path")
+            .expect("invalid config, missing store.data.path");
+        let ttl = options.get("store.ttl.sec").expect("invalid config, missing store.ttl.sec");
+        let db = DB::open_with_ttl(&opts, path, Duration::from_secs(ttl.parse())).map_err(|e| {
+            let msg = format!("open rocksdb with ttl at {} failed: {}", path, e.into_string());
+            gen_graph_err!(GraphErrorCode::ExternalStorageError, msg, open, options, path)
+        })?;
+        let ret = RocksDB { db: Atomic::new(Arc::new(db)), options: options.clone(), is_secondary: false };
         Ok(ret)
     }
 

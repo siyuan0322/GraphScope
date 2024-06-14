@@ -99,6 +99,10 @@ data:
     collect.statistics={{ .Values.collectStatistics }}
     log.recycle.offset.reserve={{ .Values.logRecycleOffsetReserve }}
 
+    ## TTL config
+    ttl.instance.enabled={{ .Values.ttl.enabled }}
+    store.ttl.sec={{ .Values.ttl.sec }}
+
     ## Extra Config
     {{- if .Values.extraConfig }}
     {{- $config_list := regexSplit ";" .Values.extraConfig -1 }}

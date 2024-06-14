@@ -110,6 +110,9 @@ public class GrootGraph {
         if (CommonConfig.SECONDARY_INSTANCE_ENABLED.get(in)) {
             out.put(StoreConfig.STORE_STORAGE_ENGINE.getKey(), "rocksdb_as_secondary");
         }
+        if (CommonConfig.TTL_INSTANCE_ENABLED.get(in)) {
+            out.put(StoreConfig.STORE_STORAGE_ENGINE.getKey(), "rocksdb_with_ttl");
+        }
         if (CommonConfig.WRITE_HA_ENABLED.get(in)) {
             logger.info("Write HA mode needs discovery mode to be 'zookeeper'");
             out.put(CommonConfig.DISCOVERY_MODE.getKey(), "zookeeper");

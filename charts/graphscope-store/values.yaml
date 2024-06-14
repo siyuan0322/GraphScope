@@ -543,3 +543,7 @@ distributed:
   enabled: false
 
 collectStatistics: false
+
+ttl:
+    enabled: false
+    sec: 86400
