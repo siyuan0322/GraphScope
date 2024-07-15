@@ -71,6 +71,6 @@ public class DataLoadConfig {
     public static final String ODPS_ENDPOINT = "odps.endpoint";
     /* end */
 
-    public static final String TTL_INSTANCE_ENABLED = "ttl.instance.enabled";
+    public static final String STORE_TTL_SEC = "store.ttl.sec";
 
 }

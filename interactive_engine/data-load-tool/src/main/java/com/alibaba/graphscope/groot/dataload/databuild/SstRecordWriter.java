@@ -33,7 +33,7 @@ public class SstRecordWriter {
     private final byte[] midnightTS;
 
     public SstRecordWriter(String fileName, String charSet) throws IOException {
-         this(fileName, charSet, false);
+         this(fileName, charSet, 0);
     }
 
     public static byte[] longToBytes(long x) {
@@ -56,7 +56,7 @@ public class SstRecordWriter {
         return zonedMidnight.toInstant().getEpochSecond();
     }
 
-    public SstRecordWriter(String fileName, String charSet, boolean ttlEnabled) throws IOException {
+    public SstRecordWriter(String fileName, String charSet, long ttlSec) throws IOException {
         this.isEmpty = true;
         this.charSet = charSet;
         Options options = new Options();
@@ -71,7 +71,7 @@ public class SstRecordWriter {
             throw new IOException(e);
         }
         this.midnightTS = longToBytes(getMidnightTimestamp());
-        this.ttlEnabled = ttlEnabled;
+        this.ttlEnabled = ttlSec > 0;
     }
 
     public void write(String key, String value) throws IOException {

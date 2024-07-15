@@ -82,7 +82,6 @@ public class CommonConfig {
             Config.boolConfig("collect.statistics", false);
 
     // TTL support https://github.com/facebook/rocksdb/wiki/Time-to-Live
-    public static final Config<Boolean> TTL_INSTANCE_ENABLED = Config.boolConfig("ttl.instance.enabled", false);
     // Default to one day ttl
     public static final Config<Long> STORE_TTL_SEC = Config.longConfig("store.ttl.sec", 86400);
 }

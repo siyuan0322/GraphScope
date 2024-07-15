@@ -43,7 +43,7 @@ public class DataBuildReducerOdps extends ReducerBase {
     private String chkFileName = null;
     private String metaFileName = DataLoadConfig.META_FILE_NAME;
 
-    private boolean ttlEnabled = false;
+    private long ttlSec = 0;
 
     @Override
     public void setup(TaskContext context) throws IOException {
@@ -54,7 +54,7 @@ public class DataBuildReducerOdps extends ReducerBase {
                 objectMapper.readValue(metaData, new TypeReference<Map<String, String>>() {});
 
         this.uniquePath = metaMap.get(DataLoadConfig.UNIQUE_PATH);
-        this.ttlEnabled = Boolean.parseBoolean(metaMap.get(DataLoadConfig.TTL_INSTANCE_ENABLED));
+        this.ttlSec = Long.parseLong(metaMap.get(DataLoadConfig.STORE_TTL_SEC));
 
         this.taskId = context.getTaskID().toString();
         taskId = taskId.substring(taskId.length() - 5);
@@ -74,7 +74,7 @@ public class DataBuildReducerOdps extends ReducerBase {
         */
 
         try {
-            this.sstRecordWriter = new SstRecordWriter(sstFileName, DataBuildMapperOdps.charSet, ttlEnabled);
+            this.sstRecordWriter = new SstRecordWriter(sstFileName, DataBuildMapperOdps.charSet, ttlSec);
         } catch (IOException e) {
             throw e;
         }

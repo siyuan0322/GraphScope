@@ -179,8 +179,8 @@ public class OfflineBuildOdps {
         outputMeta.put(DataLoadConfig.UNIQUE_PATH, uniquePath);
         outputMeta.put(DataLoadConfig.DATA_SINK_TYPE, dataSinkType);
 
-        String useTTL = properties.getProperty(DataLoadConfig.TTL_INSTANCE_ENABLED, "false");
-        outputMeta.put(DataLoadConfig.TTL_INSTANCE_ENABLED, useTTL);
+        String ttlSec = properties.getProperty(DataLoadConfig.STORE_TTL_SEC, "0");
+        outputMeta.put(DataLoadConfig.STORE_TTL_SEC, ttlSec);
 
         job.set(DataLoadConfig.META_INFO, mapper.writeValueAsString(outputMeta));
         job.set(DataLoadConfig.DATA_SINK_TYPE, dataSinkType);

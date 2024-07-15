@@ -3,13 +3,16 @@ use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
+use std::sync::atomic::Ordering::Release;
 
 use ::rocksdb::backup::{BackupEngine, BackupEngineOptions, RestoreOptions};
 use ::rocksdb::{DBRawIterator, Env, IngestExternalFileOptions, Options, ReadOptions, DB};
 use crossbeam_epoch::{self as epoch, Atomic, Guard, Owned, Shared};
-use libc::option;
-use rocksdb::WriteBatch;
+use super::ttl::encode_timestamp;
+use super::ttl::get_unix_timestamp_sec;
+use super::ttl::get_current_timestamp;
 
+use rocksdb::{ColumnFamily, CompactOptions, WriteBatch, WriteOptions};
 use super::{StorageIter, StorageRes};
 use crate::db::api::*;
 use crate::db::storage::{KvPair, RawBytes};
@@ -18,6 +21,7 @@ pub struct RocksDB {
     db: Atomic<Arc<DB>>,
     options: HashMap<String, String>,
     is_secondary: bool,
+    ttl: u64,
 }
 
 pub struct RocksDBBackupEngine {
@@ -27,43 +31,39 @@ pub struct RocksDBBackupEngine {
 
 impl RocksDB {
     pub fn open(options: &HashMap<String, String>) -> GraphResult<Self> {
-        let opts = init_options(options);
+        let opts = init_options(options, false);
         let path = options
             .get("store.data.path")
             .expect("invalid config, missing store.data.path");
+        let ttl: u64 = if let Some(ttl) = options.get("store.ttl.sec") {
+            ttl.parse().unwrap()
+        } else {
+            0u64
+        };
         let db = DB::open(&opts, path).map_err(|e| {
             let msg = format!("open rocksdb at {} failed: {}", path, e.into_string());
             gen_graph_err!(GraphErrorCode::ExternalStorageError, msg, open, options, path)
         })?;
-        let ret = RocksDB { db: Atomic::new(Arc::new(db)), options: options.clone(), is_secondary: false };
+        let ret = RocksDB { db: Atomic::new(Arc::new(db)), options: options.clone(), is_secondary: false, ttl: ttl };
         Ok(ret)
     }
 
     pub fn open_as_secondary(options: &HashMap<String, String>) -> GraphResult<Self> {
-        let db = RocksDB::open_helper(options, false).map_err(|e| {
+        let db = RocksDB::open_secondary_helper(options, false).map_err(|e| {
             let msg = format!("open rocksdb at {:?}, error: {:?}", options, e);
             gen_graph_err!(GraphErrorCode::ExternalStorageError, msg, open_as_secondary)
         })?;
+        let ttl: u64 = if let Some(ttl) = options.get("store.ttl.sec") {
+            ttl.parse().unwrap()
+        } else {
+            0u64
+        };
 
-        let ret = RocksDB { db: Atomic::new(Arc::new(db)), options: options.clone(), is_secondary: true };
+        let ret = RocksDB { db: Atomic::new(Arc::new(db)), options: options.clone(), is_secondary: true, ttl: ttl };
         Ok(ret)
     }
 
-    pub fn open_with_ttl(options: &HashMap<String, String>) -> GraphResult<Self> {
-        let opts = init_options(options);
-        let path = options
-            .get("store.data.path")
-            .expect("invalid config, missing store.data.path");
-        let ttl = options.get("store.ttl.sec").expect("invalid config, missing store.ttl.sec");
-        let db = DB::open_with_ttl(&opts, path, Duration::from_secs(ttl.parse())).map_err(|e| {
-            let msg = format!("open rocksdb with ttl at {} failed: {}", path, e.into_string());
-            gen_graph_err!(GraphErrorCode::ExternalStorageError, msg, open, options, path)
-        })?;
-        let ret = RocksDB { db: Atomic::new(Arc::new(db)), options: options.clone(), is_secondary: false };
-        Ok(ret)
-    }
-
-    pub fn open_helper(options: &HashMap<String, String>, reopen: bool) -> Result<DB, ::rocksdb::Error> {
+    pub fn open_secondary_helper(options: &HashMap<String, String>, reopen: bool) -> Result<DB, ::rocksdb::Error> {
         let path = options
             .get("store.data.path")
             .expect("invalid config, missing store.data.path");
@@ -76,7 +76,7 @@ impl RocksDB {
                 sec_path = format!("{}_1", sec_path);
             }
         }
-        let opts = init_secondary_options(options);
+        let opts = init_options(options, true);
         info!("Opening secondary at {}, {}", path, sec_path);
         DB::open_as_secondary(&opts, path, &sec_path)
     }
@@ -86,12 +86,10 @@ impl RocksDB {
     }
 
     fn replace_db(&self, db: DB) {
-        let guard = epoch::pin();
+        let guard = &epoch::pin();
         let new_db = Arc::new(db);
-        let new_db_shared = Owned::new(new_db).into_shared(&guard);
-        let old_db_shared = self
-            .db
-            .swap(new_db_shared, Ordering::Release, &guard);
+        let new_db_shared = Owned::new(new_db).into_shared(guard);
+        let old_db_shared = self.db.swap(new_db_shared, Release, guard);
 
         let default = "".to_string();
         let path = self
@@ -117,7 +115,15 @@ impl RocksDB {
         let guard = epoch::pin();
         let db_shared = self.get_db(&guard);
         if let Some(db) = unsafe { db_shared.as_ref() } {
-            match db.get(key) {
+            let ret = if self.ttl > 0 {
+                let cur_ts = &get_current_timestamp();
+                let mut opt = ReadOptions::default();
+                opt.set_timestamp(cur_ts);
+                db.get_opt(key, &opt)
+            } else {
+                db.get(key)
+            };
+            match ret {
                 Ok(Some(v)) => Ok(Some(StorageRes::RocksDB(v))),
                 Ok(None) => Ok(None),
                 Err(e) => {
@@ -141,7 +147,13 @@ impl RocksDB {
         let guard = epoch::pin();
         let db_shared = self.get_db(&guard);
         if let Some(db) = unsafe { db_shared.as_ref() } {
-            db.put(key, val).map_err(|e| {
+            let ret = if self.ttl > 0 {
+                let cur_ts = &get_current_timestamp();
+                db.put_with_ts(key, cur_ts, val)
+            } else {
+                db.put(key, val)
+            };
+            ret.map_err(|e| {
                 let msg = format!("rocksdb.put failed because {}", e.into_string());
                 gen_graph_err!(GraphErrorCode::ExternalStorageError, msg)
             })
@@ -160,7 +172,13 @@ impl RocksDB {
         let guard = epoch::pin();
         let db_shared = self.get_db(&guard);
         if let Some(db) = unsafe { db_shared.as_ref() } {
-            db.delete(key).map_err(|e| {
+            let ret = if self.ttl > 0 {
+                let cur_ts = &get_current_timestamp();
+                db.delete_with_ts(key, cur_ts)
+            } else {
+                db.delete(key)
+            };
+            ret.map_err(|e| {
                 let msg = format!("rocksdb.delete failed because {}", e.into_string());
                 gen_graph_err!(GraphErrorCode::ExternalStorageError, msg)
             })
@@ -172,34 +190,23 @@ impl RocksDB {
     }
 
     pub fn scan_prefix(&self, prefix: &[u8]) -> GraphResult<StorageIter> {
-        let guard = epoch::pin();
-        let db_shared = self.get_db(&guard);
-        if let Some(db) = unsafe { db_shared.as_ref() } {
-            Ok(StorageIter::RocksDB(RocksDBIter::new_prefix(db.clone(), prefix, guard)))
-        } else {
-            let msg = format!("rocksdb.scan_prefix failed because the acquired db is `None`");
-            let err = gen_graph_err!(GraphErrorCode::ExternalStorageError, msg);
-            Err(err)
-        }
+        let end = bytes_upper_bound(prefix);
+        self.scan_range_impl(prefix, end)
     }
 
     pub fn scan_from(&self, start: &[u8]) -> GraphResult<StorageIter> {
-        let guard = epoch::pin();
-        let db_shared = self.get_db(&guard);
-        if let Some(db) = unsafe { db_shared.as_ref() } {
-            Ok(StorageIter::RocksDB(RocksDBIter::new_start(db.clone(), start, guard)))
-        } else {
-            let msg = format!("rocksdb.scan_from failed because the acquired db is `None`");
-            let err = gen_graph_err!(GraphErrorCode::ExternalStorageError, msg);
-            Err(err)
-        }
+        self.scan_range_impl(start, None)
     }
 
     pub fn scan_range(&self, start: &[u8], end: &[u8]) -> GraphResult<StorageIter> {
+        self.scan_range_impl(start, Some(end.to_vec()))
+    }
+
+    pub fn scan_range_impl(&self, start: &[u8], end: Option<Vec<u8>>) -> GraphResult<StorageIter> {
         let guard = epoch::pin();
         let db_shared = self.get_db(&guard);
         if let Some(db) = unsafe { db_shared.as_ref() } {
-            Ok(StorageIter::RocksDB(RocksDBIter::new_range(db.clone(), start, end, guard)))
+            Ok(StorageIter::RocksDB(RocksDBIter::new_range(db.clone(), start, end, self.ttl, guard)))
         } else {
             let msg = format!("rocksdb.new_range failed because the acquired db is `None`");
             let err = gen_graph_err!(GraphErrorCode::ExternalStorageError, msg);
@@ -248,9 +255,14 @@ impl RocksDB {
         }
         let guard = epoch::pin();
         let db_shared = self.get_db(&guard);
-
+        let mut opts = &CompactOptions::default();
+        if self.ttl > 0 {
+            let expired_ts = get_unix_timestamp_sec() - self.ttl;
+            let ts = &encode_timestamp(expired_ts);
+            opts.set_full_history_ts_low(ts);
+        }
         if let Some(db) = unsafe { db_shared.as_ref() } {
-            db.compact_range(None::<&[u8]>, None::<&[u8]>);
+            db.compact_range_opt(None::<&[u8]>, None::<&[u8]>, opts);
             info!("compacted rocksdb");
             Ok(())
         } else {
@@ -319,7 +331,7 @@ impl RocksDB {
         let guard = epoch::pin();
         let db_shared = self.get_db(&guard);
         if let Some(db) = unsafe { db_shared.as_ref() } {
-            Ok(Box::new(Scan::new(db.clone(), prefix, guard)))
+            Ok(Box::new(Scan::new(db.clone(), prefix, self.ttl, guard)))
         } else {
             let msg = format!("rocksdb.new_scan failed because the acquired db is `None`");
             let err = gen_graph_err!(GraphErrorCode::ExternalStorageError, msg);
@@ -351,13 +363,14 @@ impl RocksDB {
         }
         loop {
             std::thread::sleep(Duration::from_secs(wait_sec));
-            let db = RocksDB::open_helper(&self.options, true).map_err(|e| {
+            let db = RocksDB::open_secondary_helper(&self.options, true).map_err(|e| {
                 let msg = format!("open rocksdb at {:?}, error: {:?}", self.options, e);
                 gen_graph_err!(GraphErrorCode::ExternalStorageError, msg, open_as_secondary)
             })?;
             let ret = db.try_catch_up_with_primary();
             if ret.is_err() {
                 error!("New secondary catch up failed: {:?}", ret);
+                drop(db);
             } else {
                 info!("RocksDB secondary instance reopened");
                 self.replace_db(db);
@@ -373,8 +386,8 @@ pub struct Scan<'a> {
 }
 
 impl<'a> Scan<'a> {
-    pub fn new(db: Arc<DB>, prefix: &[u8], guard: Guard) -> Self {
-        Scan { inner_iter: RocksDBIter::new_prefix(db, prefix, guard) }
+    pub fn new(db: Arc<DB>, prefix: &[u8], ttl: u64,  guard: Guard) -> Self {
+        Scan { inner_iter: RocksDBIter::new_prefix(db, prefix, ttl, guard) }
     }
 }
 
@@ -450,67 +463,63 @@ impl RocksDBBackupEngine {
     }
 }
 
-fn init_secondary_options(options: &HashMap<String, String>) -> Options {
-    let mut opts = Options::default();
-    opts.set_max_open_files(-1);
-    opts.set_max_write_buffer_number(4);
-
-    if let Some(conf_str) = options.get("store.rocksdb.wal.dir") {
-        opts.set_wal_dir(Path::new(conf_str));
-    }
-
-    // opts.set_use_direct_reads(true);
-    // opts.set_use_direct_io_for_flush_and_compaction(true);
-
-    opts
-}
-
 #[allow(unused_variables)]
-fn init_options(options: &HashMap<String, String>) -> Options {
+fn init_options(options: &HashMap<String, String>, is_secondary: bool) -> Options {
     let mut opts = Options::default();
-    opts.create_if_missing(true);
-    opts.set_max_background_jobs(6);
-    opts.set_write_buffer_size(256 << 20);
-    opts.set_max_open_files(-1);
-    // opts.set_max_log_file_size(1024 << 10);
-    opts.set_keep_log_file_num(10);
-    // https://github.com/facebook/rocksdb/wiki/Basic-Operations#non-sync-writes
-    opts.set_use_fsync(true);
-    opts.set_max_write_buffer_number(4);
+    if is_secondary {
+        opts.set_max_open_files(-1);
+    } else {
+        opts.create_if_missing(true);
+        opts.set_max_background_jobs(6);
+        opts.set_write_buffer_size(256 << 20);
+        opts.set_max_open_files(-1);
+        opts.set_keep_log_file_num(10);
+        // https://github.com/facebook/rocksdb/wiki/Basic-Operations#non-sync-writes
+        opts.set_use_fsync(true);
+        opts.set_level_compaction_dynamic_level_bytes(true);
+        opts.set_bytes_per_sync(1048576);
 
-    opts.set_bytes_per_sync(1048576);
+        if let Some(conf_str) = options.get("store.rocksdb.disable.auto.compactions") {
+            let val = conf_str.parse().unwrap();
+            opts.set_disable_auto_compactions(val);
+        }
 
-    if let Some(conf_str) = options.get("store.rocksdb.disable.auto.compactions") {
-        let val = conf_str.parse().unwrap();
-        opts.set_disable_auto_compactions(val);
+        if let Some(conf_str) = options.get("store.rocksdb.write.buffer.mb") {
+            let size_mb: usize = conf_str.parse().unwrap() * 1024 * 1024;
+            opts.set_write_buffer_size(size_bytes);
+        }
+        if let Some(conf_str) = options.get("store.rocksdb.max.write.buffer.num") {
+            opts.set_max_write_buffer_number(conf_str.parse().unwrap());
+        } else {
+            opts.set_max_write_buffer_number(4);
+        }
+        if let Some(conf_str) = options.get("store.rocksdb.level0.compaction.trigger") {
+            opts.set_level_zero_file_num_compaction_trigger(conf_str.parse().unwrap());
+        }
+        if let Some(conf_str) = options.get("store.rocksdb.max.level.base.mb") {
+            let size_mb: u64 = conf_str.parse().unwrap() * 1024 * 1024;
+            opts.set_max_bytes_for_level_base(size_mb);
+        }
+        if let Some(conf_str) = options.get("store.rocksdb.background.jobs") {
+            let background_jobs = conf_str.parse().unwrap();
+            opts.set_max_background_jobs(background_jobs);
+        }
+        if let Some(conf_str) = options.get("store.rocksdb.paranoid.checks") {
+            let check = conf_str.parse().unwrap();
+            opts.set_paranoid_checks(check);
+        }
     }
-
+    // general configuration
     if let Some(conf_str) = options.get("store.rocksdb.wal.dir") {
         opts.set_wal_dir(Path::new(conf_str));
     }
-
-    if let Some(conf_str) = options.get("store.rocksdb.write.buffer.mb") {
-        let size_mb: usize = conf_str.parse().unwrap();
-        let size_bytes = size_mb * 1024 * 1024;
-        opts.set_write_buffer_size(size_bytes);
-    }
-    if let Some(conf_str) = options.get("store.rocksdb.max.write.buffer.num") {
-        opts.set_max_write_buffer_number(conf_str.parse().unwrap());
-    }
-    if let Some(conf_str) = options.get("store.rocksdb.level0.compaction.trigger") {
-        opts.set_level_zero_file_num_compaction_trigger(conf_str.parse().unwrap());
-    }
-    if let Some(conf_str) = options.get("store.rocksdb.max.level.base.mb") {
-        let size_mb: u64 = conf_str.parse().unwrap();
-        opts.set_max_bytes_for_level_base(size_mb * 1024 * 1024);
-    }
-    if let Some(conf_str) = options.get("store.rocksdb.background.jobs") {
-        let background_jobs = conf_str.parse().unwrap();
-        opts.set_max_background_jobs(background_jobs);
-    }
-    if let Some(conf_str) = options.get("store.rocksdb.paranoid.checks") {
-        let check = conf_str.parse().unwrap();
-        opts.set_paranoid_checks(check);
+    if let Some(ttl) = options.get("store.ttl.sec") {
+        let ttl: u64 = ttl.parse().unwrap();
+        if ttl > 0 {
+            let local_compare = move |one: &[u8], two: &[u8]| one.cmp(two);
+            opts.set_comparator_with_ts("bytewise_comparator_with_ts", Box::new(local_compare));
+            opts.set_compaction_filter("filter_with_ts", super::ttl::create_ttl_filter(ttl));
+        }
     }
     opts
 }
@@ -525,42 +534,27 @@ pub struct RocksDBIter<'a> {
 unsafe impl Send for RocksDBIter<'_> {}
 
 impl<'a> RocksDBIter<'a> {
-    fn new_prefix(db: Arc<DB>, prefix: &[u8], guard: Guard) -> Self {
-        let db_ptr = Arc::into_raw(db.clone()) as *const DB;
-        let mut db_iter = Self { _db: db, inner: None, just_seeked: true, _guard: guard };
-        let db_ref = unsafe { &*db_ptr };
-        let mut iter = match bytes_upper_bound(prefix) {
-            Some(upper) => {
-                let mut option = ReadOptions::default();
-                option.set_iterate_upper_bound(upper);
-                db_ref.raw_iterator_opt(option)
-            }
-            None => db_ref.raw_iterator(),
-        };
-        iter.seek(prefix);
-
-        db_iter.inner = Some(iter);
-
-        db_iter
+    fn new_prefix(db: Arc<DB>, prefix: &[u8], ttl: u64, guard: Guard) -> Self {
+        let end = bytes_upper_bound(prefix);
+        RocksDBIter::new_range_impl(db, start, end, ttl, guard)
     }
 
-    fn new_start(db: Arc<DB>, start: &[u8], guard: Guard) -> Self {
-        let db_ptr = Arc::into_raw(db.clone()) as *const DB;
-        let mut db_iter = Self { _db: db, inner: None, just_seeked: true, _guard: guard };
-        let db_ref = unsafe { &*db_ptr };
-        let mut iter = db_ref.raw_iterator();
-        iter.seek(start);
-        db_iter.inner = Some(iter);
-
-        db_iter
+    fn new_range(db: Arc<DB>, start: &[u8], end: &[u8], ttl: u64, guard: Guard) -> Self {
+        RocksDBIter::new_range_impl(db, start, Some(end.to_vec()), ttl, guard)
     }
 
-    fn new_range(db: Arc<DB>, start: &[u8], end: &[u8], guard: Guard) -> Self {
+    fn new_range_impl(db: Arc<DB>, start: &[u8], end: Option<Vec<u8>>, ttl: u64, guard: Guard) -> Self {
         let db_ptr = Arc::into_raw(db.clone()) as *const DB;
         let mut db_iter = Self { _db: db, inner: None, just_seeked: true, _guard: guard };
         let db_ref = unsafe { &*db_ptr };
         let mut option = ReadOptions::default();
-        option.set_iterate_upper_bound(end.to_vec());
+        if let Some(end) = end {
+            option.set_iterate_upper_bound(end.to_vec());
+        }
+        if ttl > 0 {
+            let ts = &get_current_timestamp();
+            option.set_timestamp(ts);
+        }
         let mut iter = db_ref.raw_iterator_opt(option);
         iter.seek(start);
 
