@@ -85,5 +85,4 @@ public class CommonConfig {
     public static final Config<Boolean> TTL_INSTANCE_ENABLED = Config.boolConfig("ttl.instance.enabled", false);
     // Default to one day ttl
     public static final Config<Long> STORE_TTL_SEC = Config.longConfig("store.ttl.sec", 86400);
-
 }

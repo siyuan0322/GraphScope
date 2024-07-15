@@ -128,6 +128,7 @@ public class OfflineBuildOdps {
         // Disable backups from competing with original instances
         job.set("odps.sql.backupinstance.enabled", "false");
         job.setFunctionTimeout(2400);
+        job.setMemoryForReduceTask(4096);
         job.setMemoryForReducerJVM(4096);
 
         job.setMapperClass(DataBuildMapperOdps.class);
@@ -177,6 +178,9 @@ public class OfflineBuildOdps {
         outputMeta.put(DataLoadConfig.COLUMN_MAPPINGS, mapper.writeValueAsString(info));
         outputMeta.put(DataLoadConfig.UNIQUE_PATH, uniquePath);
         outputMeta.put(DataLoadConfig.DATA_SINK_TYPE, dataSinkType);
+
+        String useTTL = properties.getProperty(DataLoadConfig.TTL_INSTANCE_ENABLED, "false");
+        outputMeta.put(DataLoadConfig.TTL_INSTANCE_ENABLED, useTTL);
 
         job.set(DataLoadConfig.META_INFO, mapper.writeValueAsString(outputMeta));
         job.set(DataLoadConfig.DATA_SINK_TYPE, dataSinkType);

@@ -153,7 +153,7 @@ where
         &self, label_id: LabelId, primary_key: &PKV, _params: &QueryParams,
     ) -> GraphProxyResult<Option<Vertex>> {
         // get_vertex_id_by_primary_keys() is a global query function, that is,
-        // you can query vertices (with only vertex id) by pks on any graph partitions (not matter locally or remotely).
+        // you can query vertices (with only vertex id) by pks on any graph partitions (no matter locally or remotely).
         // To guarantee the correctness,
         // 1. all workers are going to search for gid, and compute  which partition this vertex belongs;
         // 2. the worker assigned for this partition will further confirm the result by calling get_vertex() to see if this vertex exists

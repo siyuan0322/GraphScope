@@ -19,13 +19,44 @@ import org.rocksdb.*;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.Arrays;
 
 public class SstRecordWriter {
     private final SstFileWriter sstFileWriter;
     private final String charSet;
     private boolean isEmpty;
+    private final boolean ttlEnabled;
+    private final byte[] midnightTS;
 
     public SstRecordWriter(String fileName, String charSet) throws IOException {
+         this(fileName, charSet, false);
+    }
+
+    public static byte[] longToBytes(long x) {
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.putLong(x);
+        return buffer.array();
+    }
+
+    public static long bytesToLong(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.put(bytes);
+        buffer.flip();  //need flip
+        return buffer.getLong();
+    }
+
+    public static long getMidnightTimestamp() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime midnight = today.atStartOfDay();
+        ZonedDateTime zonedMidnight = midnight.atZone(ZoneId.of("Asia/Shanghai"));
+        return zonedMidnight.toInstant().getEpochSecond();
+    }
+
+    public SstRecordWriter(String fileName, String charSet, boolean ttlEnabled) throws IOException {
         this.isEmpty = true;
         this.charSet = charSet;
         Options options = new Options();
@@ -39,10 +70,15 @@ public class SstRecordWriter {
         } catch (RocksDBException e) {
             throw new IOException(e);
         }
+        this.midnightTS = longToBytes(getMidnightTimestamp());
+        this.ttlEnabled = ttlEnabled;
     }
 
     public void write(String key, String value) throws IOException {
         byte[] keyBytes = key.getBytes(charSet);
+        if (ttlEnabled) {
+            keyBytes = concatByteArray(keyBytes, midnightTS);
+        }
         try {
             sstFileWriter.put(keyBytes, value.getBytes(charSet));
         } catch (RocksDBException e) {
@@ -65,5 +101,19 @@ public class SstRecordWriter {
         } catch (RocksDBException e) {
             throw new IOException(e);
         }
+    }
+
+    private static byte[] concatByteArray(byte[] lhs, byte[] rhs) {
+        byte[] result = new byte[lhs.length + rhs.length];
+        System.arraycopy(lhs, 0, result, 0, lhs.length);
+        System.arraycopy(rhs, 0, result, lhs.length, rhs.length);
+        return result;
+    }
+
+    public static void main(String[] args) {
+        byte[] x1 = longToBytes(getMidnightTimestamp());
+        String x = "test";
+        byte[] y = concatByteArray(x.getBytes(), x1);
+        System.out.println(Arrays.toString(y));
     }
 }

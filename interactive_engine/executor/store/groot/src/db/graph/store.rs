@@ -639,6 +639,7 @@ impl MultiVersionGraph for GraphStore {
     fn prepare_data_load(
         &self, si: i64, schema_version: i64, target: &DataLoadTarget, table_id: i64,
     ) -> GraphResult<bool> {
+        info!("start to prepare data load");
         let _guard = res_unwrap!(self.lock.lock(), prepare_data_load)?;
         self.check_si_guard(si)?;
         if let Err(_) = self.meta.check_version(schema_version) {
@@ -653,6 +654,7 @@ impl MultiVersionGraph for GraphStore {
         &self, si: i64, schema_version: i64, target: &DataLoadTarget, table_id: i64, partition_id: i32,
         unique_path: &str,
     ) -> GraphResult<bool> {
+        info!("start to commit data load");
         let _guard = res_unwrap!(self.lock.lock(), prepare_data_load)?;
         self.check_si_guard(si)?;
         if let Err(_) = self.meta.check_version(schema_version) {
