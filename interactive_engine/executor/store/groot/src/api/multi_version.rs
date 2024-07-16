@@ -17,7 +17,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::prelude::*;
-use super::{Edge, EdgeId, LabelId, SnapshotId, Vertex, VertexId};
 use crate::schema::prelude::*;
 
 pub trait MVGraphQuery: Send + Sync {

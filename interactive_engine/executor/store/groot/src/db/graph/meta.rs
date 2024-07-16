@@ -223,7 +223,7 @@ impl Meta {
                         label_id, x.table_id, x.si, x.type_def
                     );
                     let mut graph_def = self.graph_def_lock.lock()?;
-                    graph_def.update_type(label_id, x.type_def.clone());
+                    let _ = graph_def.update_type(label_id, x.type_def.clone());
                     graph_def.increase_version();
                     vertex_manager_builder.update_type(x.si, x.label_id, &x.type_def)?;
                 }
@@ -231,7 +231,7 @@ impl Meta {
                     let label_id = x.type_def.get_label_id();
                     info!("AddEdgeProperty label {:?}, si {:?}, typedef {:?}", label_id, x.si, x.type_def);
                     let mut graph_def = self.graph_def_lock.lock()?;
-                    graph_def.update_type(label_id, x.type_def.clone());
+                    let _ = graph_def.update_type(label_id, x.type_def.clone());
                     graph_def.increase_version();
                     edge_manager_builder.update_edge_type(x.si, x.label_id, &x.type_def)?;
                 }
@@ -338,7 +338,6 @@ impl Meta {
             let item = AddVertexPropertyItem::new(si, schema_version, label_id, table_id, cloned.clone());
             self.write_item(item)?;
             {
-                let current_label_idx = graph_def.get_label_idx();
                 graph_def.update_type(label_id, cloned.clone())?;
                 graph_def.increase_version();
             }
@@ -407,7 +406,6 @@ impl Meta {
             let item = AddEdgePropertyItem::new(si, schema_version, label_id, cloned.clone());
             self.write_item(item)?;
             {
-                let current_label_idx = graph_def.get_label_idx();
                 graph_def.update_type(label_id, cloned.clone())?;
                 graph_def.increase_version();
             }

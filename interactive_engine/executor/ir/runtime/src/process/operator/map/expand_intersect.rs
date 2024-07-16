@@ -13,7 +13,6 @@
 //! See the License for the specific language governing permissions and
 //! limitations under the License.
 
-use std::any::Any;
 use std::collections::BTreeMap;
 use std::convert::TryInto;
 use std::ops::RangeBounds;

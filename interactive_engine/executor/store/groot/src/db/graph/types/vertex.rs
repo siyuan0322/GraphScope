@@ -144,7 +144,7 @@ impl VertexTypeManager {
         }
         let guard = &epoch::pin();
         let map = self.get_map(guard);
-        let mut map_clone = unsafe { map.as_ref() }
+        let map_clone = unsafe { map.as_ref() }
             .ok_or_else(|| {
                 let msg = "get map reference return `None`".to_string();
                 gen_graph_err!(GraphErrorCode::InvalidData, msg, get_map, si, label)

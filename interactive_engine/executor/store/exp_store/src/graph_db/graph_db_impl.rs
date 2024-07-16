@@ -15,10 +15,9 @@
 
 use std::fs::create_dir_all;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use ahash::HashMap;
-use petgraph::graph::{edge_index, IndexType};
+use petgraph::graph::edge_index;
 use petgraph::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -28,12 +27,11 @@ use crate::common::*;
 use crate::config::{
     DIR_BINARY_DATA, FILE_EDGE_PPT_DATA, FILE_GRAPH_STRUCT, FILE_INDEX_DATA, FILE_NODE_PPT_DATA,
 };
-use crate::error::{GDBError, GDBResult};
-use crate::graph_db::labeled_topo::{LabeledTopology, MutLabeledTopology};
+use crate::error::GDBError;
 use crate::graph_db::*;
 use crate::io::export;
-use crate::schema::{LDBCGraphSchema, Schema};
-use crate::utils::{Iter, IterList};
+use crate::schema::LDBCGraphSchema;
+use crate::utils::IterList;
 
 /// To record the indexing data of this partition of graph. Each vertex has both a globally
 /// unique identifier, as well as a local id (index) generated while adding this vertex to the

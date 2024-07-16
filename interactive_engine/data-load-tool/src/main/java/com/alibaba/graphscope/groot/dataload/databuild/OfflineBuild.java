@@ -98,6 +98,9 @@ public class OfflineBuild {
         conf.setStrings(DataLoadConfig.COLUMN_MAPPINGS, mappings);
         conf.set(DataLoadConfig.SEPARATOR, separator);
         conf.setBoolean(DataLoadConfig.SKIP_HEADER, skipHeader);
+        String ttlSec = properties.getProperty(DataLoadConfig.STORE_TTL_SEC, "0");
+        logger.info("TTL sec: {}", ttlSec);
+        conf.setStrings(DataLoadConfig.STORE_TTL_SEC, ttlSec);
         Job job = Job.getInstance(conf, "build graph data");
         job.setJarByClass(OfflineBuild.class);
         job.setMapperClass(DataBuildMapper.class);
@@ -124,6 +127,7 @@ public class OfflineBuild {
         outputMeta.put(DataLoadConfig.COLUMN_MAPPINGS, mappings);
         outputMeta.put(DataLoadConfig.UNIQUE_PATH, uniquePath);
 
+     
         FileSystem fs = outputDir.getFileSystem(job.getConfiguration());
         FSDataOutputStream os = fs.create(new Path(outputDir, "META"));
         os.writeUTF(mapper.writeValueAsString(outputMeta));

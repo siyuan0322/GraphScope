@@ -15,6 +15,7 @@
  */
 package com.alibaba.graphscope.groot.dataload.databuild;
 
+import com.alibaba.graphscope.groot.common.config.DataLoadConfig;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -42,8 +43,10 @@ public class SstOutputFormat extends FileOutputFormat<BytesWritable, BytesWritab
         private final FileSystem fs;
         private final String fileName;
         private final Path path;
+        private final boolean ttlEnabled;
+        private final byte[] midnightTS;
 
-        public SstRecordWriter(FileSystem fs, Path path) throws RocksDBException {
+        public SstRecordWriter(FileSystem fs, Path path, long ttlSec) throws RocksDBException {
             this.fs = fs;
             this.path = path;
             Options options = new Options();
@@ -54,12 +57,18 @@ public class SstOutputFormat extends FileOutputFormat<BytesWritable, BytesWritab
             this.sstFileWriter = new SstFileWriter(new EnvOptions(), options);
             this.fileName = path.getName();
             sstFileWriter.open(fileName);
+            this.midnightTS = Utils.longToBytes(Utils.getMidnightTimestamp());
+            this.ttlEnabled = ttlSec > 0;
         }
 
         @Override
         public void write(BytesWritable key, BytesWritable value) throws IOException {
+            byte[] keyBytes = key.copyBytes();
+            if (ttlEnabled) {
+                keyBytes = Utils.concatByteArray(keyBytes, midnightTS);
+            }
             try {
-                sstFileWriter.put(key.copyBytes(), value.copyBytes());
+                sstFileWriter.put(keyBytes, value.copyBytes());
             } catch (RocksDBException e) {
                 ByteBuffer buffer = ByteBuffer.wrap(key.copyBytes());
                 long tableId = buffer.getLong(0) >> 1;
@@ -84,12 +93,14 @@ public class SstOutputFormat extends FileOutputFormat<BytesWritable, BytesWritab
     public RecordWriter<BytesWritable, BytesWritable> getRecordWriter(TaskAttemptContext job)
             throws IOException {
         Configuration conf = job.getConfiguration();
-
+        String ttl = conf.get(DataLoadConfig.STORE_TTL_SEC);
+        logger.info("ttl {}", ttl);
+        long ttlSec = Long.parseLong(ttl);
         Path file = getDefaultWorkFile(job, ".sst");
         logger.info("output file [{}]", file);
         FileSystem fs = file.getFileSystem(conf);
         try {
-            return new SstRecordWriter(fs, file);
+            return new SstRecordWriter(fs, file, ttlSec);
         } catch (RocksDBException e) {
             throw new IOException(e);
         }

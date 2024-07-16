@@ -14,7 +14,6 @@
 //! limitations under the License.
 
 use core::any::TypeId;
-use std::any::Any;
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;

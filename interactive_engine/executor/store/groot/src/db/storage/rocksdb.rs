@@ -4,6 +4,7 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 use std::sync::atomic::Ordering::Release;
+use std::mem::size_of;
 
 use ::rocksdb::backup::{BackupEngine, BackupEngineOptions, RestoreOptions};
 use ::rocksdb::{DBRawIterator, Env, IngestExternalFileOptions, Options, ReadOptions, DB};
@@ -12,7 +13,7 @@ use super::ttl::encode_timestamp;
 use super::ttl::get_unix_timestamp_sec;
 use super::ttl::get_current_timestamp;
 
-use rocksdb::{ColumnFamily, CompactOptions, WriteBatch, WriteOptions};
+use rocksdb::{CompactOptions, WriteBatch};
 use super::{StorageIter, StorageRes};
 use crate::db::api::*;
 use crate::db::storage::{KvPair, RawBytes};
@@ -207,6 +208,7 @@ impl RocksDB {
         let db_shared = self.get_db(&guard);
         if let Some(db) = unsafe { db_shared.as_ref() } {
             Ok(StorageIter::RocksDB(RocksDBIter::new_range(db.clone(), start, end, self.ttl, guard)))
+            Ok(StorageIter::RocksDB(RocksDBIter::new_range_impl(db.clone(), start, end, self.ttl, guard)))
         } else {
             let msg = format!("rocksdb.new_range failed because the acquired db is `None`");
             let err = gen_graph_err!(GraphErrorCode::ExternalStorageError, msg);
@@ -255,14 +257,14 @@ impl RocksDB {
         }
         let guard = epoch::pin();
         let db_shared = self.get_db(&guard);
-        let mut opts = &CompactOptions::default();
+        let mut opts = CompactOptions::default();
         if self.ttl > 0 {
             let expired_ts = get_unix_timestamp_sec() - self.ttl;
             let ts = &encode_timestamp(expired_ts);
             opts.set_full_history_ts_low(ts);
         }
         if let Some(db) = unsafe { db_shared.as_ref() } {
-            db.compact_range_opt(None::<&[u8]>, None::<&[u8]>, opts);
+            db.compact_range_opt(None::<&[u8]>, None::<&[u8]>, &opts);
             info!("compacted rocksdb");
             Ok(())
         } else {
@@ -485,7 +487,7 @@ fn init_options(options: &HashMap<String, String>, is_secondary: bool) -> Option
         }
 
         if let Some(conf_str) = options.get("store.rocksdb.write.buffer.mb") {
-            let size_mb: usize = conf_str.parse().unwrap() * 1024 * 1024;
+            let size_bytes: usize = conf_str.parse::<usize>().unwrap() * 1024 * 1024;
             opts.set_write_buffer_size(size_bytes);
         }
         if let Some(conf_str) = options.get("store.rocksdb.max.write.buffer.num") {
@@ -497,8 +499,8 @@ fn init_options(options: &HashMap<String, String>, is_secondary: bool) -> Option
             opts.set_level_zero_file_num_compaction_trigger(conf_str.parse().unwrap());
         }
         if let Some(conf_str) = options.get("store.rocksdb.max.level.base.mb") {
-            let size_mb: u64 = conf_str.parse().unwrap() * 1024 * 1024;
-            opts.set_max_bytes_for_level_base(size_mb);
+            let size_bytes: u64 = conf_str.parse::<u64>().unwrap() * 1024 * 1024;
+            opts.set_max_bytes_for_level_base(size_bytes);
         }
         if let Some(conf_str) = options.get("store.rocksdb.background.jobs") {
             let background_jobs = conf_str.parse().unwrap();
@@ -518,7 +520,34 @@ fn init_options(options: &HashMap<String, String>, is_secondary: bool) -> Option
         if ttl > 0 {
             let local_compare = move |one: &[u8], two: &[u8]| one.cmp(two);
             opts.set_comparator_with_ts("bytewise_comparator_with_ts", Box::new(local_compare));
-            opts.set_compaction_filter("filter_with_ts", super::ttl::create_ttl_filter(ttl));
+            let local_filter = move |level: u32, key: &[u8], value: &[u8]| {
+                use rocksdb::CompactionDecision::*;
+                const META_TABLE_ID: i64 = i64::min_value();
+                let prefix = META_TABLE_ID.to_be_bytes();
+                // Always keep the meta entry
+                if key.starts_with(&prefix) {
+                    info!("not filtering meta entry");
+                    return Keep;
+                }
+                info!("key: {:?}", key);
+                let mut is_stale = false;
+                if ttl > 0 {  // Data is fresh if TTL is non-positive
+                    let cur_time = get_unix_timestamp_sec();
+                    let ts = super::ttl::extract_timestamp_from_user_key(key, size_of::<u64>());
+                    info!("ts bytes: {:?}", ts);
+                    let ts = super::ttl::decode_timestamp(ts);
+                    if ts + ttl < cur_time {
+                        is_stale = true;
+                    }
+                    info!("key: {:?}, ts: {:?}, ttl: {:?}, cur_time: {:?}, is_stale {}", key, ts, ttl, cur_time, is_stale);
+                }
+                if is_stale {
+                    Remove
+                } else {
+                    Keep
+                }
+            };
+            opts.set_compaction_filter("filter_with_ts", local_filter);
         }
     }
     opts
@@ -536,7 +565,7 @@ unsafe impl Send for RocksDBIter<'_> {}
 impl<'a> RocksDBIter<'a> {
     fn new_prefix(db: Arc<DB>, prefix: &[u8], ttl: u64, guard: Guard) -> Self {
         let end = bytes_upper_bound(prefix);
-        RocksDBIter::new_range_impl(db, start, end, ttl, guard)
+        RocksDBIter::new_range_impl(db, prefix, end, ttl, guard)
     }
 
     fn new_range(db: Arc<DB>, start: &[u8], end: &[u8], ttl: u64, guard: Guard) -> Self {

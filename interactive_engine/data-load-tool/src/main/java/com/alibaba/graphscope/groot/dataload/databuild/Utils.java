@@ -18,10 +18,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.*;
 
 public class Utils {
@@ -321,5 +326,32 @@ public class Utils {
         String data = "";
         data = new String(Files.readAllBytes(Paths.get(fileName)));
         return data;
+    }
+
+    public static byte[] longToBytes(long x) {
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.putLong(x);
+        return buffer.array();
+    }
+
+    public static long bytesToLong(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.put(bytes);
+        buffer.flip();  //need flip
+        return buffer.getLong();
+    }
+
+    public static long getMidnightTimestamp() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime midnight = today.atStartOfDay();
+        ZonedDateTime zonedMidnight = midnight.atZone(ZoneId.of("Asia/Shanghai"));
+        return zonedMidnight.toInstant().getEpochSecond();
+    }
+
+    public static byte[] concatByteArray(byte[] lhs, byte[] rhs) {
+        byte[] result = new byte[lhs.length + rhs.length];
+        System.arraycopy(lhs, 0, result, 0, lhs.length);
+        System.arraycopy(rhs, 0, result, lhs.length, rhs.length);
+        return result;
     }
 }

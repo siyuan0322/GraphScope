@@ -35,7 +35,6 @@ use super::graph_db::*;
 use crate::common::{DefaultId, InternalId, LabelId, INVALID_LABEL_ID};
 use crate::config::{GraphDBConfig, JsonConf};
 use crate::error::{GDBError, GDBResult};
-use crate::graph_db::graph_db_impl::{LargeGraphDB, MutableGraphDB};
 use crate::parser::{parse_properties, ColumnMeta, DataType, EdgeMeta, ParserTrait, VertexMeta};
 use crate::schema::{LDBCGraphSchema, END_ID_FIELD, ID_FIELD, LABEL_FIELD, START_ID_FIELD};
 use crate::table::Row;

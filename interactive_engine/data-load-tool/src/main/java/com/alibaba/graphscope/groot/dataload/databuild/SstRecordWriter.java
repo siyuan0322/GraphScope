@@ -36,25 +36,7 @@ public class SstRecordWriter {
          this(fileName, charSet, 0);
     }
 
-    public static byte[] longToBytes(long x) {
-        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
-        buffer.putLong(x);
-        return buffer.array();
-    }
 
-    public static long bytesToLong(byte[] bytes) {
-        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
-        buffer.put(bytes);
-        buffer.flip();  //need flip
-        return buffer.getLong();
-    }
-
-    public static long getMidnightTimestamp() {
-        LocalDate today = LocalDate.now();
-        LocalDateTime midnight = today.atStartOfDay();
-        ZonedDateTime zonedMidnight = midnight.atZone(ZoneId.of("Asia/Shanghai"));
-        return zonedMidnight.toInstant().getEpochSecond();
-    }
 
     public SstRecordWriter(String fileName, String charSet, long ttlSec) throws IOException {
         this.isEmpty = true;
@@ -70,14 +52,14 @@ public class SstRecordWriter {
         } catch (RocksDBException e) {
             throw new IOException(e);
         }
-        this.midnightTS = longToBytes(getMidnightTimestamp());
+        this.midnightTS = Utils.longToBytes(Utils.getMidnightTimestamp());
         this.ttlEnabled = ttlSec > 0;
     }
 
     public void write(String key, String value) throws IOException {
         byte[] keyBytes = key.getBytes(charSet);
         if (ttlEnabled) {
-            keyBytes = concatByteArray(keyBytes, midnightTS);
+            keyBytes = Utils.concatByteArray(keyBytes, midnightTS);
         }
         try {
             sstFileWriter.put(keyBytes, value.getBytes(charSet));
@@ -103,17 +85,12 @@ public class SstRecordWriter {
         }
     }
 
-    private static byte[] concatByteArray(byte[] lhs, byte[] rhs) {
-        byte[] result = new byte[lhs.length + rhs.length];
-        System.arraycopy(lhs, 0, result, 0, lhs.length);
-        System.arraycopy(rhs, 0, result, lhs.length, rhs.length);
-        return result;
-    }
+
 
     public static void main(String[] args) {
-        byte[] x1 = longToBytes(getMidnightTimestamp());
+        byte[] x1 = Utils.longToBytes(Utils.getMidnightTimestamp());
         String x = "test";
-        byte[] y = concatByteArray(x.getBytes(), x1);
+        byte[] y = Utils.concatByteArray(x.getBytes(), x1);
         System.out.println(Arrays.toString(y));
     }
 }
