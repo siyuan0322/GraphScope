@@ -545,5 +545,4 @@ distributed:
 collectStatistics: false
 
 ttl:
-    enabled: false
-    sec: 86400
+    sec: 0

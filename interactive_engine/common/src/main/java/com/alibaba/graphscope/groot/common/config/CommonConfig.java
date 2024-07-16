@@ -83,5 +83,5 @@ public class CommonConfig {
 
     // TTL support https://github.com/facebook/rocksdb/wiki/Time-to-Live
     // Default to one day ttl
-    public static final Config<Long> STORE_TTL_SEC = Config.longConfig("store.ttl.sec", 86400);
+    public static final Config<Long> STORE_TTL_SEC = Config.longConfig("store.ttl.sec", 0);
 }

@@ -207,7 +207,6 @@ impl RocksDB {
         let guard = epoch::pin();
         let db_shared = self.get_db(&guard);
         if let Some(db) = unsafe { db_shared.as_ref() } {
-            Ok(StorageIter::RocksDB(RocksDBIter::new_range(db.clone(), start, end, self.ttl, guard)))
             Ok(StorageIter::RocksDB(RocksDBIter::new_range_impl(db.clone(), start, end, self.ttl, guard)))
         } else {
             let msg = format!("rocksdb.new_range failed because the acquired db is `None`");

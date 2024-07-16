@@ -100,7 +100,6 @@ data:
     log.recycle.offset.reserve={{ .Values.logRecycleOffsetReserve }}
 
     ## TTL config
-    ttl.instance.enabled={{ .Values.ttl.enabled }}
     store.ttl.sec={{ .Values.ttl.sec }}
 
     ## Extra Config
