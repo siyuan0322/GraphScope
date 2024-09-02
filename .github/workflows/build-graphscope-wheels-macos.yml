@@ -1,25 +1,21 @@
 name: Build GraphScope Wheels on macOS
 
-# on: [push, pull_request]
-on:
-  workflow_dispatch:
-  schedule:
-    # The notifications for scheduled workflows are sent to the user who
-    # last modified the cron syntax in the workflow file.
-    # Trigger the workflow at 03:00(CST) every day.
-    - cron:  '00 19 * * *'
-  push:
-    tags:
-      - "v*"
+on: [push, pull_request]
+# on:
+#   workflow_dispatch:
+
+#   push:
+#     tags:
+#       - "v*"
 
 concurrency:
   group: ${{ github.repository }}-${{ github.event.number || github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
 jobs:
-  build-wheels:
-    if: (github.ref == 'refs/heads/main' && github.repository == 'alibaba/GraphScope') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'alibaba/GraphScope') || (github.event_name == 'workflow_dispatch')
-    runs-on: macos-12
+  build-server-wheels:
+    # if: (github.ref == 'refs/heads/main' && github.repository == 'alibaba/GraphScope') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'alibaba/GraphScope') || (github.event_name == 'workflow_dispatch')
+    runs-on: macos-14
     strategy:
       matrix:
         python-version: ['3.11']
@@ -52,6 +48,7 @@ jobs:
         python3 gsctl.py install-deps dev || true
         python3 gsctl.py install-deps dev
         echo "export PATH=/usr/local/opt/coreutils/libexec/gnubin:\$PATH" >> ~/.graphscope_env
+        echo "export PATH=/opt/homebrew/opt/coreutils/libexec/gnubin:\$PATH" >> ~/.graphscope_env
 
     - name: Install JDK 11
       uses: actions/setup-java@v3
@@ -60,6 +57,7 @@ jobs:
         java-version: '11'
 
     - name: Reinstall glog
+      if: false
       run: |
         # Essential cause glog installed by brew is broken and produce corrupted messages
         brew uninstall --ignore-dependencies glog
@@ -74,32 +72,6 @@ jobs:
         # make delocate-wheel happy
         sudo mkdir -p /usr/local/opt/glog/lib
         sudo ln -s /usr/local/lib/libglog*.dylib /usr/local/opt/glog/lib/
-
-    - name: Install latest libgrape-lite
-      if: false
-      run: |
-        . ~/.graphscope_env
-        git clone --single-branch --depth=1 https://github.com/alibaba/libgrape-lite.git /tmp/libgrape-lite
-        cd /tmp/libgrape-lite
-        cmake . -DCMAKE_INSTALL_PREFIX=/usr/local
-        make -j4
-        sudo make install
-
-    - name: Install latest vineyard
-      if: false
-      run: |
-        source ~/.graphscope_env
-        python3 -m pip install libclang
-        git clone --single-branch -b v0.13.4 --depth=1 https://github.com/v6d-io/v6d.git /tmp/v6d
-        cd /tmp/v6d
-        git submodule update --init
-        cmake .  -DCMAKE_INSTALL_PREFIX=/usr/local \
-                 -DCMAKE_PREFIX_PATH=/usr/local \
-                 -DUSE_EXTERNAL_ETCD_LIBS=OFF \
-                 -DBUILD_SHARED_LIBS=ON \
-                 -DBUILD_VINEYARD_TESTS=OFF
-        make -j4
-        sudo make install
 
     - name: Build Server Wheel
       run: |
@@ -131,7 +103,7 @@ jobs:
         tar -zcf graphscope.tar.gz coordinator/dist/wheelhouse/*.whl
 
     - name: Setup tmate session
-      if: false
+      if: failure()
       uses: mxschmitt/action-tmate@v2
 
     - name: Upload Artifact
@@ -142,8 +114,8 @@ jobs:
         retention-days: 5
 
   build-client-wheels:
-    if: (github.ref == 'refs/heads/main' && github.repository == 'alibaba/GraphScope') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'alibaba/GraphScope') || (github.event_name == 'workflow_dispatch')
-    runs-on: macos-12
+    # if: (github.ref == 'refs/heads/main' && github.repository == 'alibaba/GraphScope') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'alibaba/GraphScope') || (github.event_name == 'workflow_dispatch')
+    runs-on: macos-14
     strategy:
       matrix:
         python-version: ['3.8', '3.9', '3.10', '3.11']
@@ -169,32 +141,8 @@ jobs:
         python3 -m pip install click packaging
         python3 gsctl.py install-deps dev || true
         python3 gsctl.py install-deps dev
-
-    - name: Install latest libgrape-lite
-      if: false
-      run: |
-        . ~/.graphscope_env
-        git clone --single-branch --depth=1 https://github.com/alibaba/libgrape-lite.git /tmp/libgrape-lite
-        cd /tmp/libgrape-lite
-        cmake . -DCMAKE_INSTALL_PREFIX=/usr/local
-        make -j4
-        sudo make install
-
-    - name: Install latest vineyard
-      if: false
-      run: |
-        . ~/.graphscope_env
-        python3 -m pip install libclang
-        git clone --single-branch -b v0.22.0 --depth=1 https://github.com/v6d-io/v6d.git /tmp/v6d
-        cd /tmp/v6d
-        git submodule update --init
-        cmake .  -DCMAKE_INSTALL_PREFIX=/usr/local \
-                 -DCMAKE_PREFIX_PATH=/usr/local \
-                 -DUSE_EXTERNAL_ETCD_LIBS=OFF \
-                 -DBUILD_SHARED_LIBS=ON \
-                 -DBUILD_VINEYARD_TESTS=OFF
-        make -j4
-        sudo make install
+        echo "export PATH=/usr/local/opt/coreutils/libexec/gnubin:\$PATH" >> ~/.graphscope_env
+        echo "export PATH=/opt/homebrew/opt/coreutils/libexec/gnubin:\$PATH" >> ~/.graphscope_env
 
     - name: Build Client Wheels
       run: |
@@ -220,6 +168,10 @@ jobs:
         cd ${GITHUB_WORKSPACE}
         tar -zcf client.tar.gz python/dist/
 
+    - name: Setup tmate session
+      if: failure()
+      uses: mxschmitt/action-tmate@v2
+
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
@@ -229,9 +181,9 @@ jobs:
 
   # Action gh-action-pypi-publish not support non-linux os.
   publish-wheels:
-    if: (github.ref == 'refs/heads/main' && github.repository == 'alibaba/GraphScope') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'alibaba/GraphScope')
-    runs-on: ubuntu-20.04
-    needs: [build-wheels, build-client-wheels]
+    # if: (github.ref == 'refs/heads/main' && github.repository == 'alibaba/GraphScope') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'alibaba/GraphScope')
+    runs-on: ubuntu-22.04
+    needs: [build-server-wheels, build-client-wheels]
     strategy:
       matrix:
         python-version: ['3.8', '3.9', '3.10', '3.11']
@@ -257,6 +209,9 @@ jobs:
           mv ${GITHUB_WORKSPACE}/artifacts/coordinator/dist/wheelhouse/*.whl ${GITHUB_WORKSPACE}/upload_pypi/
         fi
 
+        
+        ls -la ${GITHUB_WORKSPACE}/upload_pypi/
+
     # We do this, since failures on test.pypi aren't that bad
     - name: Publish to Test PyPI
       # the limit of graphscope package in test.pypi is still 100MB, which is not enough.
@@ -269,6 +224,7 @@ jobs:
         packages_dir: upload_pypi/
 
     - name: Publish distribution to PyPI
+      if: false
       uses: pypa/gh-action-pypi-publish@v1.4.2
       with:
         user: __token__
@@ -276,9 +232,9 @@ jobs:
         packages_dir: upload_pypi/
 
   python-test:
-    if: ${{ (github.ref == 'refs/heads/main' && github.repository == 'alibaba/GraphScope') || (github.event_name == 'workflow_dispatch') }}
-    runs-on: macos-12
-    needs: [build-wheels, build-client-wheels]
+    # if: ${{ (github.ref == 'refs/heads/main' && github.repository == 'alibaba/GraphScope') || (github.event_name == 'workflow_dispatch') }}
+    runs-on: macos-14
+    needs: [build-server-wheels, build-client-wheels]
     strategy:
       fail-fast: false
       matrix:
@@ -309,7 +265,8 @@ jobs:
         popd
 
         # install tensorflow
-        python3 -m pip install pytest "tensorflow" "pandas" --user
+        # python3 -m pip install pytest "tensorflow" "pandas" --user
+        # python3 -m pip install pytest pandas --user
 
     - name: Run Minimum Test
       env:
@@ -323,5 +280,5 @@ jobs:
         python3 -m pytest -s -v $(dirname $(python3 -c "import graphscope; print(graphscope.__file__)"))/tests/minitest
 
     - name: Setup tmate session
-      if: false
+      if: failure()
       uses: mxschmitt/action-tmate@v2
