@@ -189,7 +189,7 @@ if (OPENSSL_FOUND)
     include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 endif()
 
-find_package(Boost REQUIRED COMPONENTS system filesystem
+find_package(Boost REQUIRED COMPONENTS system filesystem process
              # required by folly
              context program_options regex thread)
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})

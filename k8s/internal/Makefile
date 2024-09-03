@@ -220,9 +220,12 @@ graphscope-client-manylinux2014-py3-nodocker:
 
 graphscope-client-darwin-py3:
 	cd $(WORKING_DIR)/../../python && \
-		python3 -m pip install ${PIP_ARGS} "torch<=2.2.1" "networkx<=3.0" --index-url https://download.pytorch.org/whl/cpu --user && \
+	if [[ "${WITHOUT_LEARNING_ENGINE}" != "ON" ]]; then \
+		python3 -m pip install ${PIP_ARGS} "torch<=2.2.1" "networkx<=3.0" --index-url https://download.pytorch.org/whl/cpu --user; \
+	fi; \
 		python3 -m pip install ${PIP_ARGS} -r requirements.txt -r requirements-dev.txt --user && \
-	cd $(WORKING_DIR)/../../learning_engine/graph-learn && \
+	if [[ "${WITHOUT_LEARNING_ENGINE}" != "ON" ]]; then \
+		cd $(WORKING_DIR)/../../learning_engine/graph-learn && \
 		(git submodule update --init third_party/pybind11 || true) && \
 		export GRAPHSCOPE_HOME=${GRAPHSCOPE_HOME} && \
 		cd graphlearn && \
@@ -233,7 +236,8 @@ graphscope-client-darwin-py3:
 		cmake -DKNN=OFF -DWITH_VINEYARD=ON -DTESTING=OFF .. && \
 		make graphlearn_shared -j`nproc` && \
 		export DYLD_LIBRARY_PATH=$(WORKING_DIR)/../../learning_engine/graph-learn/graphlearn/built/lib:/usr/local/lib:${GRAPHSCOPE_HOME}/lib:$$DYLD_LIBRARY_PATH && \
-		export DYLD_LIBRARY_PATH=$$(dirname $$(python3 -c "import torch; print(torch.__file__)"))/lib:$$DYLD_LIBRARY_PATH && \
+		export DYLD_LIBRARY_PATH=$$(dirname $$(python3 -c "import torch; print(torch.__file__)"))/lib:$$DYLD_LIBRARY_PATH; \
+	fi; \
 		cd $(WORKING_DIR)/../../python && \
 		py=$$(python3 -V 2>&1 | awk '{print $$2}' | awk -F '.' '{print $$1$$2}') && \
 		pip3 install ${PIP_ARGS} -U pip && \
@@ -256,10 +260,12 @@ graphscope-client-darwin-py3:
 		fi; \
 		rm -rf build dist/*.whl || true && \
 		python3 setup.py build_gltorch_ext --plat=macosx_${MACOS_WHEEL_VERSION}_${PLATFORM} && \
-		python3 setup.py bdist_wheel --plat=macosx_${MACOS_WHEEL_VERSION}_${PLATFORM} && \
+		python3 setup.py bdist_wheel --plat=macosx_${MACOS_WHEEL_VERSION}_${PLATFORM}; \
+	if [[ "${WITHOUT_LEARNING_ENGINE}" != "ON" ]]; then \
 		for wheel in `ls dist/*.whl`; do \
 			delocate-wheel -e libtorch_cpu.dylib -e libc10.dylib -e libtorch_python.dylib -e libtorch.dylib -w dist/wheelhouse -v $$wheel && rm $$wheel; \
-		done
+		done; \
+	fi
 
 graphscope-client-manylinux2014-py3:
 	docker pull ${REGISTRY}/graphscope/graphscope-dev:wheel-${VINEYARD_VERSION}-${ARCH}
