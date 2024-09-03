@@ -104,7 +104,7 @@ jobs:
         tar -zcf graphscope.tar.gz coordinator/dist/wheelhouse/*.whl
 
     - name: Setup tmate session
-      if: failure()
+      if: false
       uses: mxschmitt/action-tmate@v2
 
     - name: Upload Artifact
@@ -115,6 +115,7 @@ jobs:
         retention-days: 5
 
   build-client-wheels:
+    if: false
     # if: (github.ref == 'refs/heads/main' && github.repository == 'alibaba/GraphScope') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'alibaba/GraphScope') || (github.event_name == 'workflow_dispatch')
     runs-on: macos-14
     strategy:
