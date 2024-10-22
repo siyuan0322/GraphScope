@@ -18,11 +18,14 @@ import com.alibaba.graphscope.proto.groot.*;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Map;
 
 public class FrontendStoreService extends FrontendStoreServiceGrpc.FrontendStoreServiceImplBase {
+    private static final Logger logger = LoggerFactory.getLogger(FrontendStoreService.class);
 
     private final StoreService storeService;
 
@@ -33,6 +36,7 @@ public class FrontendStoreService extends FrontendStoreServiceGrpc.FrontendStore
     @Override
     public void storeIngest(
             IngestDataRequest request, StreamObserver<IngestDataResponse> responseObserver) {
+        logger.info("store ingest started");
         String dataPath = request.getDataPath();
         Map<String, String> config = request.getConfigMap();
         this.storeService.ingestData(
@@ -58,6 +62,7 @@ public class FrontendStoreService extends FrontendStoreServiceGrpc.FrontendStore
     @Override
     public void storeClearIngest(
             ClearIngestRequest request, StreamObserver<ClearIngestResponse> responseObserver) {
+        logger.info("store clear ingest started");
         try {
             this.storeService.clearIngest(request.getDataPath());
             responseObserver.onNext(ClearIngestResponse.newBuilder().build());
@@ -71,6 +76,7 @@ public class FrontendStoreService extends FrontendStoreServiceGrpc.FrontendStore
     @Override
     public void compactDB(
             CompactDBRequest request, StreamObserver<CompactDBResponse> responseObserver) {
+        logger.info("compact DB started");
         this.storeService.compactDB(
                 new CompletionCallback<Void>() {
                     @Override
@@ -93,6 +99,7 @@ public class FrontendStoreService extends FrontendStoreServiceGrpc.FrontendStore
     public void reopenSecondary(
             ReopenSecondaryRequest request,
             StreamObserver<ReopenSecondaryResponse> responseObserver) {
+        logger.info("reopen secondary started");
         this.storeService.reopenPartition(
                 5,
                 new CompletionCallback<Void>() {
@@ -115,6 +122,7 @@ public class FrontendStoreService extends FrontendStoreServiceGrpc.FrontendStore
     @Override
     public void getState(
             GetStoreStateRequest request, StreamObserver<GetStoreStateResponse> responseObserver) {
+        logger.info("Get store state");
         long[] spaces = this.storeService.getDiskStatus();
         GetStoreStateResponse.Builder builder = GetStoreStateResponse.newBuilder();
         PartitionStatePb state =

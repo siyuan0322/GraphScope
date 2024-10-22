@@ -24,6 +24,9 @@ import com.alibaba.graphscope.groot.meta.MetaStore;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.metrics.LongHistogram;
+import io.opentelemetry.api.metrics.Meter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -135,6 +138,7 @@ public class SnapshotManager {
     private final ObjectMapper objectMapper;
 
     private final boolean isSecondary;
+    private LongHistogram hist;
 
     public SnapshotManager(
             Configs configs,
@@ -154,6 +158,13 @@ public class SnapshotManager {
 
         this.storeToSnapshotInfo = new ConcurrentHashMap<>();
         this.storeToOffsets = new ConcurrentHashMap<>();
+        Meter meter = GlobalOpenTelemetry.getMeter("default");
+        this.hist =
+                meter.histogramBuilder("groot.test.duration")
+                        .setDescription("Duration of test samples.")
+                        .setUnit("ms")
+                        .ofLongs()
+                        .build();
     }
 
     public void start() {
@@ -172,6 +183,8 @@ public class SnapshotManager {
                     try {
                         long snapshotId = increaseWriteSnapshotId();
                         logger.debug("writeSnapshotId updated to [" + snapshotId + "]");
+                        int randomNum = 10 + (int)(Math.random() * ((1000 - 10) + 1));
+                        hist.record(randomNum);
                     } catch (Exception e) {
                         logger.error("error in increaseWriteSnapshotId, ignore", e);
                     }

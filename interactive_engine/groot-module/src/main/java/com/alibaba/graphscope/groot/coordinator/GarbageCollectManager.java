@@ -27,7 +27,8 @@ public class GarbageCollectManager {
         this.configs = configs;
         this.hashMap = new ConcurrentHashMap<>();
         this.clients = clients;
-        this.interval = StoreConfig.STORE_GC_INTERVAL_MS.get(configs);
+//        this.interval = StoreConfig.STORE_GC_INTERVAL_MS.get(configs);
+        this.interval = 100;
     }
 
     public void put(int frontendId, long snapshotId) {

@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use super::version::MAX_SIZE;
+
 use super::version::*;
 use crate::db::api::*;
 use crate::db::common::bytes::util::{UnsafeBytesReader, UnsafeBytesWriter};

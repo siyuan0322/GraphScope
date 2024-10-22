@@ -406,7 +406,7 @@ public class ClientService extends ClientGrpc.ClientImplBase {
     public void reopenSecondary(
             ReopenSecondaryRequest request,
             StreamObserver<ReopenSecondaryResponse> responseObserver) {
-        logger.info("Reopen secondary");
+        logger.info("reopen secondary");
         int storeCount = this.metaService.getStoreCount();
         AtomicInteger counter = new AtomicInteger(storeCount);
         AtomicBoolean finished = new AtomicBoolean(false);

@@ -491,11 +491,11 @@ pub extern "C" fn reopenSecondary(ptr: GraphHandle, wait_sec: i64) -> Box<JnaRes
     let graph_store_ptr = unsafe { &*(ptr as *const GraphStore) };
     match graph_store_ptr.reopen(wait_sec as u64) {
         Ok(_) => {
-            info!("Reopened store");
+            info!("reopened store");
             JnaResponse::new_success()
         }
         Err(e) => {
-            let msg = format!("Reopen failed: {:?}", e);
+            let msg = format!("reopen failed: {:?}", e);
             error!("{}", msg);
             JnaResponse::new_error(&msg)
         }
@@ -528,11 +528,11 @@ pub extern "C" fn tryCatchUpWithPrimary(ptr: GraphHandle) -> Box<JnaResponse> {
             // sleep 2 min for the underlying storage catch latest changes.
             match graph_store_ptr.reopen(120) {
                 Ok(_) => {
-                    info!("Reopened store after try catchup with primary");
+                    info!("reopened store after try catchup with primary");
                     JnaResponse::new_success()
                 }
                 Err(e) => {
-                    let msg = format!("Reopen failed after try catchup with primary: {:?}", e);
+                    let msg = format!("reopen failed after try catchup with primary: {:?}", e);
                     error!("{}", msg);
                     JnaResponse::new_error(&msg)
                 }

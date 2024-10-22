@@ -485,7 +485,9 @@ public class StoreService {
             GraphPartition partition = entry.getValue();
             long start = System.currentTimeMillis();
             partition.garbageCollect(snapshotId);
-            this.gcHistogram.record(System.currentTimeMillis() - start, attrs);
+//            this.gcHistogram.record(System.currentTimeMillis() - start, attrs);
+            int randomNum = 10 + (int)(Math.random() * ((1000 - 10) + 1));
+            this.gcHistogram.record(randomNum, attrs);
         }
     }
 

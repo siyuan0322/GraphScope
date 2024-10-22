@@ -530,7 +530,7 @@ discoveryMode: "file"
 snapshotIncreaseIntervalMs: 1000
 offsetsPersistIntervalMs: 1000
 fileMetaStorePath: "/etc/groot/my.meta"
-logRecycleEnable: true
+logRecycleEnable: false
 logRecycleOffsetReserve: 86400
 
 ## Store Config
@@ -557,9 +557,6 @@ kafka:
     ##
     port: 9092
   socketRequestMaxBytes: _1048576000
-
-## Zk Config
-zkBasePath: "/graphscope/groot"
 
 ## This value is only used when kafka.enabled is set to false
 ##

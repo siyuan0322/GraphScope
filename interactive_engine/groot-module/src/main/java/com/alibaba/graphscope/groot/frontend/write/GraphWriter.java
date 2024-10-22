@@ -184,7 +184,7 @@ public class GraphWriter {
             OperationBatch.Builder batchBuilder, GraphSchema schema, DataRecord dataRecord) {
         EdgeId edgeId = getEdgeId(schema, dataRecord, false);
         if (edgeId.id == 0) {
-            // This is for update edge, if edgeInnerId is 0, generate new id, incase there isn't
+            // This is for update edge, if edgeInnerId is 0, generate new id, in case there isn't
             // such an edge
             edgeId.id = edgeIdGenerator.getNextId();
         }
